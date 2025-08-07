@@ -1,0 +1,78 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Player {
+  id           Int         @id @default(autoincrement())
+  telegramId   BigInt      @unique
+  username     String?
+  firstName    String
+  skillSelf    Int         @default(3)
+  skillCaptain Float       @default(0)
+  tsMu         Float       @default(25)
+  tsSigma      Float       @default(8.333)
+  isAdmin      Boolean     @default(false)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  
+  weekEntries  WeekEntry[]
+  ratings      Rating[]
+  
+  @@map("players")
+}
+
+model WeekEntry {
+  id           Int       @id @default(autoincrement())
+  week         Int
+  year         Int
+  playerId     Int
+  state        String    @default("MAIN")
+  isPaid       Boolean   @default(false)
+  paymentTime  DateTime?
+  createdAt    DateTime  @default(now())
+  
+  player       Player    @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  
+  @@unique([week, year, playerId])
+  @@map("week_entries")
+}
+
+model Rating {
+  id        Int      @id @default(autoincrement())
+  matchId   Int
+  playerId  Int
+  delta     Int
+  scheme    String   @default("captain")
+  createdAt DateTime @default(now())
+  
+  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  
+  @@map("ratings")
+}
+
+model GameSession {
+  id              Int      @id @default(autoincrement())
+  week            Int
+  year            Int
+  teamA           String
+  teamB           String
+  teamAPlayers    String?  // JSON array of player IDs
+  teamBPlayers    String?  // JSON array of player IDs
+  isConfirmed     Boolean  @default(false)
+  isInitialized   Boolean  @default(false)
+  paymentPhone    String?
+  paymentBank     String?
+  paymentAmount   Float?
+  gameDate        DateTime?
+  gameLocation    String?
+  createdAt       DateTime @default(now())
+  
+  @@unique([week, year])
+  @@map("game_sessions")
+}
+

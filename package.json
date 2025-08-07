@@ -1,0 +1,53 @@
+{
+  "name": "football-teams-bot",
+  "version": "1.0.0",
+  "description": "Telegram bot for organizing 8x8 football teams",
+  "main": "dist/bot.js",
+  "scripts": {
+    "dev": "tsx watch src/bot.ts",
+    "build": "tsc",
+    "start": "node dist/bot.js",
+    "test": "vitest",
+    "test:coverage": "vitest --coverage",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "format": "prettier --write src/**/*.ts",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:studio": "prisma studio"
+  },
+  "keywords": [
+    "telegram",
+    "bot",
+    "football",
+    "teams"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@google/genai": "^1.12.0",
+    "@prisma/client": "^5.15.0",
+    "dotenv": "^17.2.1",
+    "node-cron": "^3.0.3",
+    "reflect-metadata": "^0.2.2",
+    "telegraf": "^4.16.3",
+    "tsyringe": "^4.8.0",
+    "winston": "^3.13.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.9",
+    "@types/node-cron": "^3.0.11",
+    "@typescript-eslint/eslint-plugin": "^7.15.0",
+    "@typescript-eslint/parser": "^7.15.0",
+    "@vitest/coverage-v8": "^1.6.0",
+    "eslint": "^8.57.0",
+    "prettier": "^3.3.2",
+    "prisma": "^5.15.0",
+    "tsx": "^4.16.2",
+    "typescript": "^5.5.3",
+    "vitest": "^1.6.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
