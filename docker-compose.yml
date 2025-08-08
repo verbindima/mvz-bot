@@ -1,16 +1,49 @@
 version: '3.9'
 
 services:
+  # PostgreSQL database for local development
+  postgres:
+    image: postgres:15
+    container_name: mvz-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: mvz_bot
+      POSTGRES_USER: mvz_user
+      POSTGRES_PASSWORD: password123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mvz_user -d mvz_bot"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Adminer для веб-интерфейса к БД (опционально)
+  adminer:
+    image: adminer:latest
+    container_name: mvz-adminer
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+
+  # Bot service (для локального тестирования)
   bot:
     build: .
     restart: unless-stopped
     env_file:
       - .env
     volumes:
-      - bot_data:/app/data
       - bot_logs:/app/logs
     environment:
       - NODE_ENV=production
+      - DATABASE_URL=postgresql://mvz_user:password123@postgres:5432/mvz_bot
+    depends_on:
+      postgres:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "node", "-e", "process.exit(0)"]
       interval: 30s
@@ -18,7 +51,7 @@ services:
       retries: 3
 
 volumes:
-  bot_data:
+  postgres_data:
     driver: local
   bot_logs:
     driver: local
