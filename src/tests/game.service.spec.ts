@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { GameService } from '../services/game.service';
 
-vi.mock('@/utils/database', () => ({
+vi.mock('../utils/database', () => ({
   prisma: {
     player: {
       findUnique: vi.fn(),
@@ -22,11 +22,11 @@ vi.mock('@/utils/database', () => ({
   },
 }));
 
-vi.mock('@/utils/week', () => ({
+vi.mock('../utils/week', () => ({
   getCurrentWeek: vi.fn(() => ({ week: 32, year: 2024 })),
 }));
 
-const mockPrisma = vi.mocked(await import('@/utils/database')).prisma;
+const mockPrisma = vi.mocked(await import('../utils/database')).prisma;
 
 describe('GameService', () => {
   let gameService: GameService;

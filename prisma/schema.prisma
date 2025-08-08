@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -22,6 +22,7 @@ model Player {
   
   weekEntries  WeekEntry[]
   ratings      Rating[]
+  teamPlayers  TeamPlayer[]
   
   @@map("players")
 }
@@ -61,8 +62,6 @@ model GameSession {
   year            Int
   teamA           String
   teamB           String
-  teamAPlayers    String?  // JSON array of player IDs
-  teamBPlayers    String?  // JSON array of player IDs
   isConfirmed     Boolean  @default(false)
   isInitialized   Boolean  @default(false)
   paymentPhone    String?
@@ -72,7 +71,25 @@ model GameSession {
   gameLocation    String?
   createdAt       DateTime @default(now())
   
+  // Relations
+  teamPlayers     TeamPlayer[]
+  
   @@unique([week, year])
   @@map("game_sessions")
+}
+
+model TeamPlayer {
+  id            Int         @id @default(autoincrement())
+  gameSessionId Int
+  playerId      Int
+  team          String      // "A" or "B"
+  createdAt     DateTime    @default(now())
+  
+  // Relations
+  gameSession   GameSession @relation(fields: [gameSessionId], references: [id], onDelete: Cascade)
+  player        Player      @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  
+  @@unique([gameSessionId, playerId])
+  @@map("team_players")
 }
 

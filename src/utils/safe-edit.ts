@@ -1,4 +1,4 @@
-import { BotContext } from '@/bot';
+import { BotContext } from '../bot';
 
 interface MessageOptions {
   parse_mode?: 'HTML' | 'Markdown';

@@ -1,8 +1,9 @@
 import { container } from 'tsyringe';
-import { BotContext } from '@/bot';
-import { CONFIG, MESSAGES, setScheme } from '@/config';
-import { RatingService } from '@/services/rating.service';
-import { prisma } from '@/utils/database';
+import { BotContext } from '../bot';
+import { CONFIG, MESSAGES, setScheme } from '../config';
+import { RatingService } from '../services/rating.service';
+import { TeamPlayerService } from '../services/team-player.service';
+import { prisma } from '../utils/database';
 
 export const rateCommand = async (ctx: BotContext): Promise<void> => {
   try {
@@ -96,14 +97,26 @@ export const resultCommand = async (ctx: BotContext): Promise<void> => {
       return;
     }
 
-    const { main } = await ctx.gameService.getWeekPlayers();
-    if (main.length !== 16) {
-      await ctx.reply('Нет активной игры с 16 игроками');
+    const { week, year } = require('../utils/week').getCurrentWeek();
+    const gameSession = await prisma.gameSession.findUnique({
+      where: { week_year: { week, year } },
+    });
+
+    if (!gameSession || !gameSession.isConfirmed) {
+      await ctx.reply('Нет активной утвержденной игры');
       return;
     }
 
-    const teamAPlayers = main.slice(0, 8).map(p => p.id);
-    const teamBPlayers = main.slice(8, 16).map(p => p.id);
+    const teamPlayerService = container.resolve(TeamPlayerService);
+    const teamComposition = await teamPlayerService.getTeamComposition(gameSession.id);
+
+    if (!teamComposition) {
+      await ctx.reply('Составы команд не найдены');
+      return;
+    }
+
+    const teamAPlayers = teamComposition.teamA.map(p => p.id);
+    const teamBPlayers = teamComposition.teamB.map(p => p.id);
 
     const ratingService = container.resolve(RatingService);
 
@@ -121,5 +134,68 @@ export const resultCommand = async (ctx: BotContext): Promise<void> => {
   } catch (error) {
     console.error('Error in result command:', error);
     await ctx.reply('Произошла ошибка при обработке результата.');
+  }
+};
+
+export const finishGameCommand = async (ctx: BotContext): Promise<void> => {
+  try {
+    if (!CONFIG.ADMINS.includes(ctx.from!.id)) {
+      await ctx.reply(MESSAGES.ACCESS_DENIED);
+      return;
+    }
+
+    const { week, year } = require('../utils/week').getCurrentWeek();
+    
+    // Проверяем есть ли активная сессия
+    const gameSession = await prisma.gameSession.findUnique({
+      where: { week_year: { week, year } },
+    });
+
+    if (!gameSession || !gameSession.isInitialized) {
+      await ctx.reply('❌ Нет активной игры для завершения');
+      return;
+    }
+
+    // Предварительное подтверждение
+    const confirmMessage = `⚠️ Вы уверены, что хотите завершить игру и сбросить сессию?\n\n` +
+      `Это действие:\n` +
+      `• Сбросит утвержденные команды\n` +
+      `• Очистит список записанных игроков\n` +
+      `• Деактивирует текущую сессию\n\n` +
+      `Для подтверждения отправьте: /finish_game confirm`;
+
+    const args = ('text' in ctx.message! && ctx.message.text) ? ctx.message.text.split(' ') : [];
+    
+    if (args.length < 2 || args[1] !== 'confirm') {
+      await ctx.reply(confirmMessage);
+      return;
+    }
+
+    // Очищаем составы команд через TeamPlayerService
+    const teamPlayerService = container.resolve(TeamPlayerService);
+    await teamPlayerService.clearTeamComposition(gameSession.id);
+
+    // Выполняем сброс сессии
+    await prisma.gameSession.update({
+      where: { week_year: { week, year } },
+      data: {
+        isConfirmed: false,
+        isInitialized: false,
+        teamA: '',
+        teamB: '',
+      },
+    });
+
+    // Удаляем записи игроков на эту неделю
+    await prisma.weekEntry.deleteMany({
+      where: { week, year },
+    });
+
+    await ctx.reply(`✅ Игра завершена и сессия сброшена!\n\n` +
+      `Теперь можно начинать новый набор командой /init_week`);
+      
+  } catch (error) {
+    console.error('Error in finish_game command:', error);
+    await ctx.reply('Произошла ошибка при завершении игры.');
   }
 };

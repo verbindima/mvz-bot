@@ -44,10 +44,11 @@
     "prettier": "^3.3.2",
     "prisma": "^5.15.0",
     "tsx": "^4.16.2",
-    "typescript": "^5.5.3",
+    "typescript": "^5.9.2",
     "vitest": "^1.6.0"
   },
   "engines": {
     "node": ">=20.0.0"
-  }
+  },
+  "packageManager": "yarn@4.9.2+sha512.1fc009bc09d13cfd0e19efa44cbfc2b9cf6ca61482725eb35bbc5e257e093ebf4130db6dfe15d604ff4b79efd8e1e8e99b25fa7d0a6197c9f9826358d4d65c3c"
 }

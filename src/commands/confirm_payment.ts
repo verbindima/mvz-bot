@@ -1,7 +1,7 @@
-import { BotContext } from '@/bot';
-import { prisma } from '@/utils/database';
-import { getCurrentWeek } from '@/utils/week';
-import { CONFIG } from '@/config';
+import { BotContext } from '../bot';
+import { prisma } from '../utils/database';
+import { getCurrentWeek } from '../utils/week';
+import { CONFIG } from '../config';
 
 export const confirmPaymentCommand = async (ctx: BotContext): Promise<void> => {
   try {

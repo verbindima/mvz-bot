@@ -1,7 +1,7 @@
-import { BotContext } from '@/bot';
-import { CONFIG } from '@/config';
-import { prisma } from '@/utils/database';
-import { getCurrentWeek } from '@/utils/week';
+import { BotContext } from '../bot';
+import { CONFIG } from '../config';
+import { prisma } from '../utils/database';
+import { getCurrentWeek } from '../utils/week';
 
 export const removeFromGameCommand = async (ctx: BotContext): Promise<void> => {
   try {

@@ -1,9 +1,10 @@
-import { BotContext } from '@/bot';
-import { prisma } from '@/utils/database';
-import { getCurrentWeek } from '@/utils/week';
-import { escapeHtml } from '@/utils/html';
-import { CONFIG } from '@/config';
-import { TeamService } from '@/services/team.service';
+import { BotContext } from '../bot';
+import { prisma } from '../utils/database';
+import { getCurrentWeek } from '../utils/week';
+import { escapeHtml } from '../utils/html';
+import { CONFIG } from '../config';
+import { TeamService } from '../services/team.service';
+import { TeamPlayerService } from '../services/team-player.service';
 import { container } from 'tsyringe';
 
 export const editTeamsCommand = async (ctx: BotContext): Promise<void> => {
@@ -15,7 +16,21 @@ export const editTeamsCommand = async (ctx: BotContext): Promise<void> => {
       where: { week_year: { week, year } },
     });
 
-    if (!gameSession || !gameSession.teamAPlayers || !gameSession.teamBPlayers) {
+    if (!gameSession) {
+      await ctx.editMessageText('❌ Игровая сессия не найдена. Сначала инициализируйте неделю.', {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '↩️ Назад', callback_data: 'regenerate_teams' }]
+          ]
+        }
+      });
+      return;
+    }
+
+    const teamPlayerService = container.resolve(TeamPlayerService);
+    const teamComposition = await teamPlayerService.getTeamComposition(gameSession.id);
+
+    if (!teamComposition) {
       await ctx.editMessageText('❌ Составы команд не найдены. Сначала сгенерируйте команды.', {
         reply_markup: {
           inline_keyboard: [
@@ -26,19 +41,9 @@ export const editTeamsCommand = async (ctx: BotContext): Promise<void> => {
       return;
     }
 
-    const teamAIds = JSON.parse(gameSession.teamAPlayers) as number[];
-    const teamBIds = JSON.parse(gameSession.teamBPlayers) as number[];
-
-    // Получаем игроков
-    const teamAPlayers = await prisma.player.findMany({
-      where: { id: { in: teamAIds } },
-      orderBy: { firstName: 'asc' }
-    });
-
-    const teamBPlayers = await prisma.player.findMany({
-      where: { id: { in: teamBIds } },
-      orderBy: { firstName: 'asc' }
-    });
+    // Сортируем игроков по имени
+    const teamAPlayers = [...teamComposition.teamA].sort((a, b) => a.firstName.localeCompare(b.firstName));
+    const teamBPlayers = [...teamComposition.teamB].sort((a, b) => a.firstName.localeCompare(b.firstName));
 
     // Форматируем сообщение для редактирования
     const formatTeamForEdit = (players: any[], teamName: string, teamLetter: 'A' | 'B'): string => {
@@ -109,31 +114,24 @@ export const movePlayerCommand = async (ctx: BotContext, fromTeam: 'A' | 'B', pl
       where: { week_year: { week, year } },
     });
 
-    if (!gameSession || !gameSession.teamAPlayers || !gameSession.teamBPlayers) {
+    if (!gameSession) {
+      await ctx.answerCbQuery('❌ Игровая сессия не найдена');
+      return;
+    }
+
+    const teamPlayerService = container.resolve(TeamPlayerService);
+    const teamComposition = await teamPlayerService.getTeamComposition(gameSession.id);
+    
+    if (!teamComposition) {
       await ctx.answerCbQuery('❌ Составы команд не найдены');
       return;
     }
 
-    let teamAIds = JSON.parse(gameSession.teamAPlayers) as number[];
-    let teamBIds = JSON.parse(gameSession.teamBPlayers) as number[];
+    // Определяем целевую команду
+    const newTeam = fromTeam === 'A' ? 'B' : 'A';
 
-    // Перемещаем игрока
-    if (fromTeam === 'A') {
-      teamAIds = teamAIds.filter(id => id !== playerId);
-      teamBIds.push(playerId);
-    } else {
-      teamBIds = teamBIds.filter(id => id !== playerId);
-      teamAIds.push(playerId);
-    }
-
-    // Обновляем в базе данных
-    await prisma.gameSession.update({
-      where: { week_year: { week, year } },
-      data: {
-        teamAPlayers: JSON.stringify(teamAIds),
-        teamBPlayers: JSON.stringify(teamBIds),
-      },
-    });
+    // Перемещаем игрока через сервис
+    await teamPlayerService.movePlayerToTeam(gameSession.id, playerId, newTeam);
 
     await ctx.answerCbQuery('✅ Игрок перемещен!');
 
@@ -159,33 +157,29 @@ export const recalculateBalanceCommand = async (ctx: BotContext): Promise<void> 
       where: { week_year: { week, year } },
     });
 
-    if (!gameSession || !gameSession.teamAPlayers || !gameSession.teamBPlayers) {
+    if (!gameSession) {
+      await ctx.answerCbQuery('❌ Игровая сессия не найдена');
+      return;
+    }
+
+    const teamPlayerService = container.resolve(TeamPlayerService);
+    const teamComposition = await teamPlayerService.getTeamComposition(gameSession.id);
+
+    if (!teamComposition) {
       await ctx.answerCbQuery('❌ Составы команд не найдены');
       return;
     }
 
-    const teamAIds = JSON.parse(gameSession.teamAPlayers) as number[];
-    const teamBIds = JSON.parse(gameSession.teamBPlayers) as number[];
-
-    // Получаем игроков
-    const teamAPlayers = await prisma.player.findMany({
-      where: { id: { in: teamAIds } },
-    });
-
-    const teamBPlayers = await prisma.player.findMany({
-      where: { id: { in: teamBIds } },
-    });
-
     const teamService = container.resolve(TeamService);
 
     // Пересчитываем баланс для текущих составов
-    const teamAWeight = teamAPlayers.reduce((sum, player) => sum + teamService.getPlayerWeight(player), 0);
-    const teamBWeight = teamBPlayers.reduce((sum, player) => sum + teamService.getPlayerWeight(player), 0);
+    const teamAWeight = teamComposition.teamA.reduce((sum, player) => sum + teamService.getPlayerWeight(player), 0);
+    const teamBWeight = teamComposition.teamB.reduce((sum, player) => sum + teamService.getPlayerWeight(player), 0);
     const difference = Math.abs(teamAWeight - teamBWeight);
 
     const balance = {
-      teamA: { players: teamAPlayers, totalRating: teamAWeight, averageRating: teamAWeight / teamAPlayers.length },
-      teamB: { players: teamBPlayers, totalRating: teamBWeight, averageRating: teamBWeight / teamBPlayers.length },
+      teamA: { players: teamComposition.teamA, totalRating: teamAWeight, averageRating: teamAWeight / teamComposition.teamA.length },
+      teamB: { players: teamComposition.teamB, totalRating: teamBWeight, averageRating: teamBWeight / teamComposition.teamB.length },
       difference,
       winProbability: teamService.calculateWinProbability(teamAWeight, teamBWeight),
     };

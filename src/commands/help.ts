@@ -1,6 +1,6 @@
-import { BotContext } from '@/bot';
-import { CONFIG } from '@/config';
-import { isPrivateChat } from '@/utils/chat';
+import { BotContext } from '../bot';
+import { CONFIG } from '../config';
+import { isPrivateChat } from '../utils/chat';
 
 export const helpCommand = async (ctx: BotContext): Promise<void> => {
   try {
@@ -34,6 +34,7 @@ export const helpCommand = async (ctx: BotContext): Promise<void> => {
         message += `/rate @username ±1 - Обновить рейтинг\n`;
         message += `/scheme &lt;self|captain|ts&gt; - Схема рейтинга\n`;
         message += `/result A 5-3 B - Результат матча\n`;
+        message += `/finish_game confirm - Завершить игру и сбросить сессию\n`;
         message += `/register username "Имя" skill - Зарегистрировать игрока\n`;
         message += `/remove_from_game username - Убрать игрока из текущей игры\n`;
         message += `/add username - Добавить одного игрока\n`;

@@ -1,7 +1,7 @@
-import { BotContext } from '@/bot';
-import { CONFIG } from '@/config';
-import { getCurrentWeek } from '@/utils/week';
-import { prisma } from '@/utils/database';
+import { BotContext } from '../bot';
+import { CONFIG } from '../config';
+import { getCurrentWeek } from '../utils/week';
+import { prisma } from '../utils/database';
 
 export const add16Command = async (ctx: BotContext): Promise<void> => {
   try {

@@ -1,5 +1,5 @@
-import { BotContext } from '@/bot';
-import { MESSAGES } from '@/config';
+import { BotContext } from '../bot';
+import { MESSAGES } from '../config';
 
 export const joinCommand = async (ctx: BotContext): Promise<void> => {
   try {

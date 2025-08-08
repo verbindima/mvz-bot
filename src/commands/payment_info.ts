@@ -1,7 +1,7 @@
-import { BotContext } from '@/bot';
-import { prisma } from '@/utils/database';
-import { getCurrentWeek } from '@/utils/week';
-import { safeEditOrReply } from '@/utils/safe-edit';
+import { BotContext } from '../bot';
+import { prisma } from '../utils/database';
+import { getCurrentWeek } from '../utils/week';
+import { safeEditOrReply } from '../utils/safe-edit';
 
 export const paymentInfoCommand = async (ctx: BotContext): Promise<void> => {
   try {

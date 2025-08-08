@@ -1,9 +1,9 @@
-import { BotContext } from '@/bot';
-import { CONFIG } from '@/config';
-import { escapeHtml } from '@/utils/html';
+import { BotContext } from '../bot';
+import { CONFIG } from '../config';
+import { escapeHtml } from '../utils/html';
 import { writeFileSync } from 'fs';
 import { join } from 'path';
-import { checkAdminPrivateOnly } from '@/utils/chat';
+import { checkAdminPrivateOnly } from '../utils/chat';
 
 export const playersCommand = async (ctx: BotContext): Promise<void> => {
   try {
@@ -14,13 +14,17 @@ export const playersCommand = async (ctx: BotContext): Promise<void> => {
     const players = await ctx.playerService.getAllPlayers();
     const { main, waiting } = await ctx.gameService.getWeekPlayers();
 
-    let message = `👥 <b>Все игроки</b> (${players.length}):\n\n`;
+    let message = `👥 <b>Все игроки</b> (${players.length}):\n`;
+    message += `<i>Self - самооценка (1-5), TS - TrueSkill μ±σ (навык±неопределенность)</i>\n\n`;
 
     message += `⚽ <b>Основной состав</b> (${main.length}/16):\n`;
     main.forEach((player, index) => {
       const firstName = escapeHtml(player.firstName);
       const username = player.username ? ` @${player.username}` : '';
-      message += `${index + 1}. ${firstName}${username} (${player.skillSelf})\n`;
+      const selfRating = player.skillSelf;
+      const tsRating = player.tsMu.toFixed(1);
+      const tsSigma = player.tsSigma.toFixed(1);
+      message += `${index + 1}. ${firstName}${username} (Self: ${selfRating}, TS: ${tsRating}±${tsSigma})\n`;
     });
 
     if (waiting.length > 0) {
@@ -28,7 +32,10 @@ export const playersCommand = async (ctx: BotContext): Promise<void> => {
       waiting.forEach((player, index) => {
         const firstName = escapeHtml(player.firstName);
         const username = player.username ? ` @${player.username}` : '';
-        message += `${index + 1}. ${firstName}${username} (${player.skillSelf})\n`;
+        const selfRating = player.skillSelf;
+        const tsRating = player.tsMu.toFixed(1);
+        const tsSigma = player.tsSigma.toFixed(1);
+        message += `${index + 1}. ${firstName}${username} (Self: ${selfRating}, TS: ${tsRating}±${tsSigma})\n`;
       });
     }
 
@@ -41,7 +48,10 @@ export const playersCommand = async (ctx: BotContext): Promise<void> => {
       notInGame.slice(0, 10).forEach(player => {
         const firstName = escapeHtml(player.firstName);
         const username = player.username ? ` @${player.username}` : '';
-        message += `• ${firstName}${username} (${player.skillSelf})\n`;
+        const selfRating = player.skillSelf;
+        const tsRating = player.tsMu.toFixed(1);
+        const tsSigma = player.tsSigma.toFixed(1);
+        message += `• ${firstName}${username} (Self: ${selfRating}, TS: ${tsRating}±${tsSigma})\n`;
       });
       
       if (notInGame.length > 10) {

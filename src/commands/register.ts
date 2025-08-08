@@ -1,7 +1,7 @@
-import { BotContext } from '@/bot';
-import { CONFIG } from '@/config';
-import { prisma } from '@/utils/database';
-import { escapeHtml } from '@/utils/html';
+import { BotContext } from '../bot';
+import { CONFIG } from '../config';
+import { prisma } from '../utils/database';
+import { escapeHtml } from '../utils/html';
 
 export const registerPlayerCommand = async (ctx: BotContext): Promise<void> => {
   try {

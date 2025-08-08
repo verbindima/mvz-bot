@@ -1,5 +1,5 @@
-import { BotContext } from '@/bot';
-import { MESSAGES, KEYBOARDS } from '@/config';
+import { BotContext } from '../bot';
+import { MESSAGES, KEYBOARDS } from '../config';
 
 export const startCommand = async (ctx: BotContext): Promise<void> => {
   try {

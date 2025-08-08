@@ -1,7 +1,7 @@
 import { injectable } from 'tsyringe';
 import { GoogleGenAI } from '@google/genai';
-import { CONFIG } from '@/config';
-import { logger } from '@/utils/logger';
+import { CONFIG } from '../config';
+import { logger } from '../utils/logger';
 
 @injectable()
 export class AIService {

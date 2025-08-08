@@ -1,10 +1,11 @@
 import { container } from 'tsyringe';
-import { BotContext } from '@/bot';
-import { MESSAGES, KEYBOARDS } from '@/config';
-import { TeamService } from '@/services/team.service';
-import { checkAdminPrivateOnly } from '@/utils/chat';
-import { prisma } from '@/utils/database';
-import { getCurrentWeek } from '@/utils/week';
+import { BotContext } from '../bot';
+import { MESSAGES, KEYBOARDS } from '../config';
+import { TeamService } from '../services/team.service';
+import { TeamPlayerService } from '../services/team-player.service';
+import { checkAdminPrivateOnly } from '../utils/chat';
+import { prisma } from '../utils/database';
+import { getCurrentWeek } from '../utils/week';
 
 export const teamsCommand = async (ctx: BotContext): Promise<void> => {
   try {
@@ -24,24 +25,28 @@ export const teamsCommand = async (ctx: BotContext): Promise<void> => {
     
     // Сохраняем составы команд в базу данных
     const { week, year } = getCurrentWeek();
-    const teamAIds = balance.teamA.players.map(p => p.id);
-    const teamBIds = balance.teamB.players.map(p => p.id);
     
-    await prisma.gameSession.upsert({
+    const gameSession = await prisma.gameSession.upsert({
       where: { week_year: { week, year } },
       update: {
-        teamAPlayers: JSON.stringify(teamAIds),
-        teamBPlayers: JSON.stringify(teamBIds),
+        teamA: '',
+        teamB: '',
       },
       create: {
         week,
         year,
         teamA: '',
         teamB: '',
-        teamAPlayers: JSON.stringify(teamAIds),
-        teamBPlayers: JSON.stringify(teamBIds),
       },
     });
+
+    // Сохраняем составы команд через TeamPlayerService
+    const teamPlayerService = container.resolve(TeamPlayerService);
+    await teamPlayerService.saveTeamComposition(
+      gameSession.id,
+      balance.teamA.players,
+      balance.teamB.players
+    );
 
     const message = teamService.formatTeamsMessage(balance);
 

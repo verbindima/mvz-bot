@@ -1,8 +1,8 @@
-import { BotContext } from '@/bot';
-import { CONFIG } from '@/config';
-import { prisma } from '@/utils/database';
+import { BotContext } from '../bot';
+import { CONFIG } from '../config';
+import { prisma } from '../utils/database';
 import { container } from 'tsyringe';
-import { RatingService } from '@/services/rating.service';
+import { RatingService } from '../services/rating.service';
 
 export const addHistoryCommand = async (ctx: BotContext): Promise<void> => {
   try {

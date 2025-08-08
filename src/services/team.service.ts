@@ -1,8 +1,8 @@
 import { injectable } from 'tsyringe';
 import { Player } from '@prisma/client';
-import { CONFIG } from '@/config';
-import { logger } from '@/utils/logger';
-import { escapeHtml } from '@/utils/html';
+import { CONFIG } from '../config';
+import { logger } from '../utils/logger';
+import { escapeHtml } from '../utils/html';
 
 export interface Team {
   players: Player[];
@@ -136,6 +136,11 @@ export class TeamService {
     const teamAStr = formatTeam(balance.teamA, '🔴');
     const teamBStr = formatTeam(balance.teamB, '🔵');
 
-    return `${teamAStr}\n\n${teamBStr}\n\n📊 Разница: ${balance.difference.toFixed(2)}\n🎯 Вероятность победы красных: ${balance.winProbability.toFixed(1)}%`;
+    // Определяем, какая команда сильнее
+    const strongerTeam = balance.teamA.totalRating > balance.teamB.totalRating ? '🔴 красных' : '🔵 синих';
+    const weakerTeam = balance.teamA.totalRating > balance.teamB.totalRating ? '🔵 синих' : '🔴 красных';
+    const winProb = balance.teamA.totalRating > balance.teamB.totalRating ? balance.winProbability : 100 - balance.winProbability;
+
+    return `${teamAStr}\n\n${teamBStr}\n\n📊 Разница в силе: ${balance.difference.toFixed(1)} ${CONFIG.SCHEME === 'ts' ? 'μ' : 'балла'}\n🎯 Шансы на победу ${strongerTeam}: ${winProb.toFixed(0)}% vs ${weakerTeam}: ${(100 - winProb).toFixed(0)}%`;
   }
 }

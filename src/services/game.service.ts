@@ -1,8 +1,8 @@
 import { injectable } from 'tsyringe';
 import { Player, WeekEntry } from '@prisma/client';
-import { prisma } from '@/utils/database';
-import { getCurrentWeek } from '@/utils/week';
-import { logger } from '@/utils/logger';
+import { prisma } from '../utils/database';
+import { getCurrentWeek } from '../utils/week';
+import { logger } from '../utils/logger';
 
 export interface GameResult {
   success: boolean;
@@ -23,6 +23,18 @@ export class GameService {
       }
 
       const { week, year } = getCurrentWeek();
+
+      // Проверяем, инициализирована ли игра на текущую неделю
+      const gameSession = await prisma.gameSession.findUnique({
+        where: { week_year: { week, year } },
+      });
+
+      if (!gameSession || !gameSession.isInitialized) {
+        return { 
+          success: false, 
+          error: 'Игра на эту неделю еще не инициализирована. Ожидайте объявления от администратора.' 
+        };
+      }
 
       const existingEntry = await prisma.weekEntry.findFirst({
         where: {
@@ -86,6 +98,8 @@ export class GameService {
       if (!entry) {
         return { success: false, error: 'Вы не записаны на игру.' };
       }
+
+      // Позволяем выйти из игры даже если она не инициализирована (если игрок уже записан)
 
       await prisma.weekEntry.delete({
         where: { id: entry.id },

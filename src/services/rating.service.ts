@@ -1,7 +1,7 @@
 import { injectable } from 'tsyringe';
 import { Player } from '@prisma/client';
-import { prisma } from '@/utils/database';
-import { logger } from '@/utils/logger';
+import { prisma } from '../utils/database';
+import { logger } from '../utils/logger';
 
 @injectable()
 export class RatingService {

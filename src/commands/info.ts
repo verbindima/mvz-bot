@@ -1,9 +1,10 @@
-import { BotContext } from '@/bot';
-import { escapeHtml } from '@/utils/html';
-import { prisma } from '@/utils/database';
-import { getCurrentWeek } from '@/utils/week';
-import { safeEditOrReply } from '@/utils/safe-edit';
-import { TeamService } from '@/services/team.service';
+import { BotContext } from '../bot';
+import { escapeHtml } from '../utils/html';
+import { prisma } from '../utils/database';
+import { getCurrentWeek } from '../utils/week';
+import { safeEditOrReply } from '../utils/safe-edit';
+import { TeamService } from '../services/team.service';
+import { TeamPlayerService } from '../services/team-player.service';
 import { container } from 'tsyringe';
 
 const generateInfoMessage = async (ctx: BotContext, playerId: number) => {
@@ -29,15 +30,15 @@ const generateInfoMessage = async (ctx: BotContext, playerId: number) => {
   const playerInWaiting = waiting.find(p => p.id === playerId);
 
   if (playerInMain) {
-    if (teamsConfirmed && gameSession?.teamAPlayers && gameSession?.teamBPlayers) {
+    if (teamsConfirmed && gameSession) {
       // Если команды утверждены, определяем в какой команде игрок
-      const teamAIds = JSON.parse(gameSession.teamAPlayers) as number[];
-      const teamBIds = JSON.parse(gameSession.teamBPlayers) as number[];
+      const teamPlayerService = container.resolve(TeamPlayerService);
+      const playerTeamResult = await teamPlayerService.getPlayerTeam(gameSession.id, playerId);
 
-      if (teamAIds.includes(playerId)) {
+      if (playerTeamResult === 'A') {
         playerStatus = '🔴 Вы в команде A';
         playerTeam = 'A';
-      } else if (teamBIds.includes(playerId)) {
+      } else if (playerTeamResult === 'B') {
         playerStatus = '🔵 Вы в команде B';
         playerTeam = 'B';
       } else {
@@ -57,59 +58,64 @@ const generateInfoMessage = async (ctx: BotContext, playerId: number) => {
   // Формируем отображение игроков
   let mainPlayersText = '';
 
-  if (teamsConfirmed && gameSession?.teamAPlayers && gameSession?.teamBPlayers) {
+  if (teamsConfirmed && gameSession) {
     // Если команды утверждены, показываем составы команд
-    const teamAIds = JSON.parse(gameSession.teamAPlayers) as number[];
-    const teamBIds = JSON.parse(gameSession.teamBPlayers) as number[];
+    const teamPlayerService = container.resolve(TeamPlayerService);
+    const teamComposition = await teamPlayerService.getTeamComposition(gameSession.id);
 
-    const teamAPlayers = await prisma.player.findMany({
-      where: { id: { in: teamAIds } },
-      include: {
-        weekEntries: {
-          where: { week, year },
-          take: 1
+    if (!teamComposition) {
+      mainPlayersText = '<i>Команды не найдены</i>';
+    } else {
+      // Получаем дополнительную информацию о записях игроков
+      const teamAPlayersWithEntries = await prisma.player.findMany({
+        where: { id: { in: teamComposition.teamA.map(p => p.id) } },
+        include: {
+          weekEntries: {
+            where: { week, year },
+            take: 1
+          }
         }
-      }
-    });
+      });
 
-    const teamBPlayers = await prisma.player.findMany({
-      where: { id: { in: teamBIds } },
-      include: {
-        weekEntries: {
-          where: { week, year },
-          take: 1
+      const teamBPlayersWithEntries = await prisma.player.findMany({
+        where: { id: { in: teamComposition.teamB.map(p => p.id) } },
+        include: {
+          weekEntries: {
+            where: { week, year },
+            take: 1
+          }
         }
-      }
-    });
+      });
 
-    // Получаем TeamService для расчета рейтингов
-    const teamService = container.resolve(TeamService);
+      // Получаем TeamService для расчета рейтингов
+      const teamService = container.resolve(TeamService);
 
-    // Форматируем команду A
-    const teamAStr = teamAPlayers.map((p, i) => {
-      const escapedName = escapeHtml(p.firstName);
-      const paymentIcon = p.weekEntries[0]?.isPaid ? ' ✅' : '';
-      const rating = teamService.getPlayerWeight(p).toFixed(1);
-      return `${i + 1}. ${escapedName} — ${rating}${paymentIcon}`;
-    }).join('\n');
+      // Форматируем команду A
+      const teamAStr = teamAPlayersWithEntries.map((p, i) => {
+        const escapedName = escapeHtml(p.firstName);
+        const paymentIcon = p.weekEntries[0]?.isPaid ? ' ✅' : '';
+        const rating = teamService.getPlayerWeight(p).toFixed(1);
+        return `${i + 1}. ${escapedName} — ${rating}${paymentIcon}`;
+      }).join('\n');
 
-    // Форматируем команду B
-    const teamBStr = teamBPlayers.map((p, i) => {
-      const escapedName = escapeHtml(p.firstName);
-      const paymentIcon = p.weekEntries[0]?.isPaid ? ' ✅' : '';
-      const rating = teamService.getPlayerWeight(p).toFixed(1);
-      return `${i + 1}. ${escapedName} — ${rating}${paymentIcon}`;
-    }).join('\n');
+      // Форматируем команду B
+      const teamBStr = teamBPlayersWithEntries.map((p, i) => {
+        const escapedName = escapeHtml(p.firstName);
+        const paymentIcon = p.weekEntries[0]?.isPaid ? ' ✅' : '';
+        const rating = teamService.getPlayerWeight(p).toFixed(1);
+        return `${i + 1}. ${escapedName} — ${rating}${paymentIcon}`;
+      }).join('\n');
 
-    // Рассчитываем баланс команд
-    const teamAWeight = teamAPlayers.reduce((sum, p) => sum + teamService.getPlayerWeight(p), 0);
-    const teamBWeight = teamBPlayers.reduce((sum, p) => sum + teamService.getPlayerWeight(p), 0);
-    const difference = Math.abs(teamAWeight - teamBWeight);
-    const winProbability = teamService.calculateWinProbability(teamAWeight, teamBWeight);
+      // Рассчитываем баланс команд
+      const teamAWeight = teamComposition.teamA.reduce((sum, p) => sum + teamService.getPlayerWeight(p), 0);
+      const teamBWeight = teamComposition.teamB.reduce((sum, p) => sum + teamService.getPlayerWeight(p), 0);
+      const difference = Math.abs(teamAWeight - teamBWeight);
+      const winProbability = teamService.calculateWinProbability(teamAWeight, teamBWeight);
 
-    mainPlayersText = `<b>🔴 Команда A</b> (${teamAWeight.toFixed(1)}):\n${teamAStr}\n\n` +
-                     `<b>🔵 Команда B</b> (${teamBWeight.toFixed(1)}):\n${teamBStr}\n\n` +
-                     `📊 Разница: ${difference.toFixed(2)} | 🎯 Вероятность победы красных: ${winProbability.toFixed(1)}%`;
+      mainPlayersText = `<b>🔴 Команда A</b> (${teamAWeight.toFixed(1)}):\n${teamAStr}\n\n` +
+                       `<b>🔵 Команда B</b> (${teamBWeight.toFixed(1)}):\n${teamBStr}\n\n` +
+                       `📊 Разница: ${difference.toFixed(2)} | 🎯 Вероятность победы красных: ${winProbability.toFixed(1)}%`;
+    }
   } else {
     // Обычный список если команды не утверждены
     if (main.length > 0) {
@@ -149,7 +155,7 @@ const generateInfoMessage = async (ctx: BotContext, playerId: number) => {
     message += `\n`;
   }
 
-  if (teamsConfirmed && gameSession?.teamAPlayers && gameSession?.teamBPlayers) {
+  if (teamsConfirmed && gameSession) {
     // Если команды утверждены, показываем их
     message += `🏆 <b>Утвержденные команды:</b>\n\n`;
     message += `${mainPlayersText}\n\n`;

@@ -1,6 +1,6 @@
-import { BotContext } from '@/bot';
-import { CONFIG } from '@/config';
-import { safeEditOrReply } from '@/utils/safe-edit';
+import { BotContext } from '../bot';
+import { CONFIG } from '../config';
+import { safeEditOrReply } from '../utils/safe-edit';
 
 export const ratingInfoCommand = async (ctx: BotContext): Promise<void> => {
   try {

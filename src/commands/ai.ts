@@ -1,5 +1,5 @@
-import { BotContext } from '@/bot';
-import { checkAdminAnyChat } from '@/utils/chat';
+import { BotContext } from '../bot';
+import { checkAdminAnyChat } from '../utils/chat';
 
 export const aiCommand = async (ctx: BotContext): Promise<void> => {
   try {

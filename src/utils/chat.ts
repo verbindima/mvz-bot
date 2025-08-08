@@ -1,5 +1,5 @@
-import { BotContext } from '@/bot';
-import { CONFIG } from '@/config';
+import { BotContext } from '../bot';
+import { CONFIG } from '../config';
 
 export const isPrivateChat = (ctx: BotContext): boolean => {
   return ctx.chat?.type === 'private';
