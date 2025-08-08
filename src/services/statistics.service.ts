@@ -28,20 +28,42 @@ export class StatisticsService {
         where: { telegramId: BigInt(telegramId) },
       });
 
-      if (!player) return null;
+      if (!player) {
+        logger.info(`Player not found for telegramId: ${telegramId}`);
+        return null;
+      }
+
+      logger.info(`Player found: ${player.firstName} (ID: ${player.id})`);
 
       // Получаем все игры игрока через TeamPlayer
-      const teamPlayers = await prisma.teamPlayer.findMany({
-        where: { playerId: player.id },
-        include: {
-          gameSession: {
-            include: {
-              matchResult: true,
+      let teamPlayers = [];
+      try {
+        teamPlayers = await prisma.teamPlayer.findMany({
+          where: { playerId: player.id },
+          include: {
+            gameSession: {
+              include: {
+                matchResult: true,
+              },
             },
           },
-        },
-        orderBy: { createdAt: 'desc' },
-      });
+          orderBy: { createdAt: 'desc' },
+        });
+        logger.info(`Found ${teamPlayers.length} team player records`);
+      } catch (error) {
+        logger.error('Error fetching team players (table may not exist):', error);
+        // Возвращаем базовую статистику если таблицы не существуют
+        return {
+          player,
+          gamesPlayed: 0,
+          wins: 0,
+          losses: 0,
+          draws: 0,
+          winRate: 0,
+          currentTSRating: `${player.tsMu.toFixed(1)}±${player.tsSigma.toFixed(1)}`,
+          ratingHistory: [],
+        };
+      }
 
       // Фильтруем только игры с результатами
       const completedGames = teamPlayers.filter(tp => tp.gameSession.matchResult);

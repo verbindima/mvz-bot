@@ -4,9 +4,9 @@ import { StatisticsService } from '../services/statistics.service';
 import { escapeHtml } from '../utils/html';
 import { safeEditOrReply } from '../utils/safe-edit';
 
-const generateStatsMessage = async (ctx: BotContext, playerId: number) => {
+const generateStatsMessage = async (ctx: BotContext, telegramId: number) => {
   const statisticsService = container.resolve(StatisticsService);
-  const stats = await statisticsService.getPlayerStatistics(playerId);
+  const stats = await statisticsService.getPlayerStatistics(telegramId);
 
   if (!stats) {
     return {
@@ -81,7 +81,7 @@ export const statsCommand = async (ctx: BotContext): Promise<void> => {
       return;
     }
 
-    const { message, keyboard } = await generateStatsMessage(ctx, player.id);
+    const { message, keyboard } = await generateStatsMessage(ctx, ctx.from!.id);
 
     await safeEditOrReply(ctx, message, {
       parse_mode: 'HTML',
