@@ -373,4 +373,6 @@ $RECYCLE.BIN/
 # End of https://www.toptal.com/developers/gitignore/api/node,webstorm,visualstudiocode,osx,macos,linux,windows
 
 backup
-./prisma/data/database.db
+*database.db
+*.db
+*.csv
