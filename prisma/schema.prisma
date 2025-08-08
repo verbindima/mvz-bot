@@ -19,11 +19,11 @@ model Player {
   isAdmin      Boolean     @default(false)
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
-  
+
   weekEntries  WeekEntry[]
   ratings      Rating[]
   teamPlayers  TeamPlayer[]
-  
+
   @@map("players")
 }
 
@@ -36,9 +36,9 @@ model WeekEntry {
   isPaid       Boolean   @default(false)
   paymentTime  DateTime?
   createdAt    DateTime  @default(now())
-  
+
   player       Player    @relation(fields: [playerId], references: [id], onDelete: Cascade)
-  
+
   @@unique([week, year, playerId])
   @@map("week_entries")
 }
@@ -50,9 +50,9 @@ model Rating {
   delta     Int
   scheme    String   @default("captain")
   createdAt DateTime @default(now())
-  
+
   player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
-  
+
   @@map("ratings")
 }
 
@@ -60,8 +60,8 @@ model GameSession {
   id              Int      @id @default(autoincrement())
   week            Int
   year            Int
-  teamA           String
-  teamB           String
+  teamA           String   @default("")
+  teamB           String   @default("")
   isConfirmed     Boolean  @default(false)
   isInitialized   Boolean  @default(false)
   paymentPhone    String?
@@ -70,10 +70,10 @@ model GameSession {
   gameDate        DateTime?
   gameLocation    String?
   createdAt       DateTime @default(now())
-  
+
   // Relations
   teamPlayers     TeamPlayer[]
-  
+
   @@unique([week, year])
   @@map("game_sessions")
 }
@@ -84,11 +84,11 @@ model TeamPlayer {
   playerId      Int
   team          String      // "A" or "B"
   createdAt     DateTime    @default(now())
-  
+
   // Relations
   gameSession   GameSession @relation(fields: [gameSessionId], references: [id], onDelete: Cascade)
   player        Player      @relation(fields: [playerId], references: [id], onDelete: Cascade)
-  
+
   @@unique([gameSessionId, playerId])
   @@map("team_players")
 }
