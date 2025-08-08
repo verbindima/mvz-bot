@@ -98,6 +98,11 @@ jobs:
               ls -t | tail -n +6 | xargs -r rm -rf
             fi
             
+            # Install unzip if not present
+            if ! command -v unzip &> /dev/null; then
+              apt update && apt install -y unzip
+            fi
+            
             # Create app directory
             mkdir -p $APP_DIR
             cd $APP_DIR
