@@ -62,11 +62,20 @@ jobs:
         with:
           name: deployment
 
-      - name: Debug secrets
+      - name: Extract deployment archive
         run: |
-          echo "SERVER_HOST is set: ${{ secrets.SERVER_HOST != '' }}"
-          echo "SERVER_USER is set: ${{ secrets.SERVER_USER != '' }}"
-          echo "SERVER_SSH_KEY is set: ${{ secrets.SERVER_SSH_KEY != '' }}"
+          tar -xzf deployment.tar.gz
+          ls -la
+
+      - name: Upload files to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT || '22' }}
+          source: "dist,node_modules,package.json,prisma,.env.example,ecosystem.config.js"
+          target: "/tmp/mvz-deploy"
 
       - name: Deploy to server
         uses: appleboy/ssh-action@v1.2.0
@@ -98,24 +107,10 @@ jobs:
               ls -t | tail -n +6 | xargs -r rm -rf
             fi
             
-            # Install unzip if not present
-            if ! command -v unzip &> /dev/null; then
-              apt update && apt install -y unzip
-            fi
-            
-            # Create app directory
+            # Create app directory and move files
             mkdir -p $APP_DIR
+            cp -r /tmp/mvz-deploy/* $APP_DIR/
             cd $APP_DIR
-            
-            # Download deployment archive
-            curl -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-                 -L "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/deployment" \
-                 -o deployment.zip
-            
-            # Extract deployment
-            unzip -q deployment.zip
-            tar -xzf deployment.tar.gz
-            rm deployment.zip deployment.tar.gz
             
             # Setup environment if not exists
             if [ ! -f .env ]; then
@@ -130,6 +125,9 @@ jobs:
             # Start application
             pm2 start ecosystem.config.js --env production
             pm2 save
+            
+            # Cleanup
+            rm -rf /tmp/mvz-deploy
             
             echo "✅ Deployment completed successfully!"
 
