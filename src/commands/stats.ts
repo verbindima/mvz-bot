@@ -37,7 +37,6 @@ const generateStatsMessage = async (ctx: BotContext, playerId: number) => {
   }
 
   // Рейтинги
-  message += `⭐ <b>Самооценка:</b> ${stats.selfRating}/5\n`;
   message += `🧮 <b>TrueSkill:</b> ${stats.currentTSRating}\n\n`;
 
   // История последних игр

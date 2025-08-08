@@ -13,19 +13,18 @@ export const registerPlayerCommand = async (ctx: BotContext): Promise<void> => {
     const text = ('text' in ctx.message! && ctx.message.text) ? ctx.message.text : '';
     const args = text.split(' ').slice(1);
     
-    if (args.length < 2 || args.length > 4) {
+    if (args.length < 2 || args.length > 3) {
       await ctx.reply(
         `📋 <b>Использование:</b>\n` +
-        `/register username "Имя Фамилия" [skill] [telegram_id]\n\n` +
+        `/register username "Имя Фамилия" [telegram_id]\n\n` +
         `<b>Параметры:</b>\n` +
         `• username - никнейм игрока (без @)\n` +
         `• "Имя Фамилия" - полное имя в кавычках\n` +
-        `• skill - уровень игры 1-5 (по умолчанию 3)\n` +
         `• telegram_id - ID пользователя (опционально)\n\n` +
         `<b>Примеры:</b>\n` +
         `/register john_doe "Джон Доу"\n` +
-        `/register mary_smith "Мария Смит" 4\n` +
-        `/register alex_jones "Алекс Джонс" 5 123456789`
+        `/register mary_smith "Мария Смит"\n` +
+        `/register alex_jones "Алекс Джонс" 123456789`
       , { parse_mode: 'HTML' });
       return;
     }
@@ -34,7 +33,6 @@ export const registerPlayerCommand = async (ctx: BotContext): Promise<void> => {
     
     // Парсим имя из кавычек
     let firstName: string;
-    let skill = 3;
     let telegramId: number | null = null;
     
     // Ищем текст в кавычках
@@ -53,16 +51,7 @@ export const registerPlayerCommand = async (ctx: BotContext): Promise<void> => {
     const remainingArgs = afterName.split(' ').filter(arg => arg.length > 0);
     
     if (remainingArgs.length >= 1) {
-      const skillValue = parseInt(remainingArgs[0]);
-      if (isNaN(skillValue) || skillValue < 1 || skillValue > 5) {
-        await ctx.reply('❌ Уровень игры должен быть от 1 до 5');
-        return;
-      }
-      skill = skillValue;
-    }
-    
-    if (remainingArgs.length >= 2) {
-      const telegramIdValue = parseInt(remainingArgs[1]);
+      const telegramIdValue = parseInt(remainingArgs[0]);
       if (isNaN(telegramIdValue)) {
         await ctx.reply('❌ Telegram ID должен быть числом');
         return;
@@ -98,7 +87,6 @@ export const registerPlayerCommand = async (ctx: BotContext): Promise<void> => {
         telegramId: telegramId ? BigInt(telegramId) : BigInt(Date.now() * -1), // Используем отрицательный timestamp как временный ID
         username,
         firstName,
-        skillSelf: skill,
       }
     });
     
@@ -107,7 +95,6 @@ export const registerPlayerCommand = async (ctx: BotContext): Promise<void> => {
       `✅ <b>Игрок зарегистрирован:</b>\n\n` +
       `👤 Имя: ${escapedName}\n` +
       `🏷️ Username: @${username}\n` +
-      `⭐ Уровень игры: ${skill}/5\n` +
       `🆔 ID: ${player.id}` +
       (telegramId ? `\n📱 Telegram ID: ${telegramId}` : '')
     , { parse_mode: 'HTML' });
@@ -131,14 +118,14 @@ export const bulkRegisterCommand = async (ctx: BotContext): Promise<void> => {
       await ctx.reply(
         `📋 <b>Массовая регистрация игроков:</b>\n\n` +
         `Отправьте команду /bulk_register, а затем список игроков в формате:\n` +
-        `username1 "Имя1 Фамилия1" skill1\n` +
-        `username2 "Имя2 Фамилия2" skill2\n` +
+        `username1 "Имя1 Фамилия1"\n` +
+        `username2 "Имя2 Фамилия2"\n` +
         `...\n\n` +
         `<b>Пример:</b>\n` +
         `/bulk_register\n` +
-        `john_doe "Джон Доу" 4\n` +
-        `mary_smith "Мария Смит" 5\n` +
-        `alex_jones "Алекс Джонс" 3`
+        `john_doe "Джон Доу"\n` +
+        `mary_smith "Мария Смит"\n` +
+        `alex_jones "Алекс Джонс"`
       , { parse_mode: 'HTML' });
       return;
     }
@@ -153,8 +140,8 @@ export const bulkRegisterCommand = async (ctx: BotContext): Promise<void> => {
       if (!trimmedLine) continue;
       
       try {
-        // Парсим строку: username "Name" skill
-        const nameMatch = trimmedLine.match(/^(\S+)\s+"([^"]+)"(?:\s+(\d+))?/);
+        // Парсим строку: username "Name"
+        const nameMatch = trimmedLine.match(/^(\S+)\s+"([^"]+)"/); 
         
         if (!nameMatch) {
           results.push(`❌ ${trimmedLine} - неверный формат`);
@@ -162,15 +149,8 @@ export const bulkRegisterCommand = async (ctx: BotContext): Promise<void> => {
           continue;
         }
         
-        const [, rawUsername, firstName, skillStr] = nameMatch;
+        const [, rawUsername, firstName] = nameMatch;
         const username = rawUsername.replace('@', ''); // Убираем @ если есть
-        const skill = skillStr ? parseInt(skillStr) : 3;
-        
-        if (skill < 1 || skill > 5) {
-          results.push(`❌ @${username} - уровень должен быть 1-5`);
-          errors++;
-          continue;
-        }
         
         // Проверяем существование
         const existing = await prisma.player.findFirst({
@@ -189,11 +169,10 @@ export const bulkRegisterCommand = async (ctx: BotContext): Promise<void> => {
             telegramId: BigInt(Date.now() * -1 - registered), // Уникальный отрицательный ID
             username,
             firstName,
-            skillSelf: skill,
           }
         });
         
-        results.push(`✅ @${username} - ${firstName} (${skill})`);
+        results.push(`✅ @${username} - ${firstName}`);
         registered++;
         
       } catch (error) {
@@ -238,11 +217,9 @@ export const editPlayerCommand = async (ctx: BotContext): Promise<void> => {
         `/edit_player username field value\n\n` +
         `<b>Поля для изменения:</b>\n` +
         `• name "Новое Имя" - изменить имя\n` +
-        `• skill 1-5 - изменить уровень игры\n` +
         `• username новый_юзернейм - изменить username\n\n` +
         `<b>Примеры:</b>\n` +
         `/edit_player john_doe name "Джон Смит"\n` +
-        `/edit_player mary_smith skill 4\n` +
         `/edit_player old_name username new_name`
       , { parse_mode: 'HTML' });
       return;
@@ -276,15 +253,6 @@ export const editPlayerCommand = async (ctx: BotContext): Promise<void> => {
         successMessage = `имя изменено на "${nameMatch[1]}"`;
         break;
         
-      case 'skill':
-        const skill = parseInt(args[2]);
-        if (isNaN(skill) || skill < 1 || skill > 5) {
-          await ctx.reply('❌ Уровень игры должен быть от 1 до 5');
-          return;
-        }
-        updateData.skillSelf = skill;
-        successMessage = `уровень игры изменен на ${skill}`;
-        break;
         
       case 'username':
         const newUsername = args[2].replace('@', '');
@@ -301,7 +269,7 @@ export const editPlayerCommand = async (ctx: BotContext): Promise<void> => {
         break;
         
       default:
-        await ctx.reply('❌ Неизвестное поле. Доступны: name, skill, username');
+        await ctx.reply('❌ Неизвестное поле. Доступны: name, username');
         return;
     }
     
@@ -315,8 +283,7 @@ export const editPlayerCommand = async (ctx: BotContext): Promise<void> => {
     await ctx.reply(
       `✅ <b>Игрок обновлен:</b>\n\n` +
       `👤 Имя: ${escapedName}\n` +
-      `🏷️ Username: @${updatedPlayer.username}\n` +
-      `⭐ Уровень: ${updatedPlayer.skillSelf}/5\n\n` +
+      `🏷️ Username: @${updatedPlayer.username}\n\n` +
       `📝 ${successMessage}`
     , { parse_mode: 'HTML' });
     

@@ -11,7 +11,6 @@ export interface PlayerStats {
   draws: number;
   winRate: number;
   currentTSRating: string;
-  selfRating: number;
   ratingHistory: Array<{
     date: Date;
     tsMu: number;
@@ -87,7 +86,6 @@ export class StatisticsService {
         draws,
         winRate,
         currentTSRating: `${player.tsMu.toFixed(1)}±${player.tsSigma.toFixed(1)}`,
-        selfRating: player.skillSelf,
         ratingHistory: ratingHistory.slice(0, 10), // Последние 10 игр
       };
 

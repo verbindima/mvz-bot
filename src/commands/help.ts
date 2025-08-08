@@ -32,10 +32,10 @@ export const helpCommand = async (ctx: BotContext): Promise<void> => {
         message += `/teams - Сгенерировать команды\n`;
         message += `/players - Список всех игроков\n`;
         message += `/rate @username ±1 - Обновить рейтинг\n`;
-        message += `/scheme &lt;self|captain|ts&gt; - Схема рейтинга\n`;
+        message += `/scheme &lt;captain|ts&gt; - Схема рейтинга\n`;
         message += `/result A 5-3 B - Результат матча\n`;
         message += `/finish_game confirm - Завершить игру и сбросить сессию\n`;
-        message += `/register username "Имя" skill - Зарегистрировать игрока\n`;
+        message += `/register username "Имя" - Зарегистрировать игрока\n`;
         message += `/remove_from_game username - Убрать игрока из текущей игры\n`;
         message += `/add username - Добавить одного игрока\n`;
         message += `/add16 user1 user2... - Добавить игроков по username\n`;
@@ -53,7 +53,7 @@ export const helpCommand = async (ctx: BotContext): Promise<void> => {
     }
     
     message += `<b>📊 Схемы рейтинга:</b>\n`;
-    message += `• <b>self</b> - самооценка (1-5)\n`;
+    message += `• <b>captain</b> - оценка капитанов\n`;
     message += `• <b>ts</b> - TrueSkill система\n\n`;
     
     message += `<b>⚽ Как играть:</b>\n`;

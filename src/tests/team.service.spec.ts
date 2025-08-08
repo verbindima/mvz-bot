@@ -15,7 +15,6 @@ describe('TeamService', () => {
       telegramId: BigInt(1000 + i),
       username: `user${i + 1}`,
       firstName: `Player${i + 1}`,
-      skillSelf: Math.floor(Math.random() * 5) + 1,
       skillCaptain: Math.random() * 10,
       tsMu: 20 + Math.random() * 10,
       tsSigma: 8.333,
@@ -53,11 +52,12 @@ describe('TeamService', () => {
     expect(allTeamIds).toEqual(originalIds);
   });
 
-  it('should calculate team totals correctly', () => {
+  it('should calculate team totals correctly using TrueSkill', () => {
+    process.env.SCHEME = 'ts';
     const result = teamService.generateBalancedTeams(mockPlayers);
     
-    const expectedTeamATotal = result.teamA.players.reduce((sum, p) => sum + p.skillSelf, 0);
-    const expectedTeamBTotal = result.teamB.players.reduce((sum, p) => sum + p.skillSelf, 0);
+    const expectedTeamATotal = result.teamA.players.reduce((sum, p) => sum + p.tsMu, 0);
+    const expectedTeamBTotal = result.teamB.players.reduce((sum, p) => sum + p.tsMu, 0);
     
     expect(result.teamA.totalRating).toBe(expectedTeamATotal);
     expect(result.teamB.totalRating).toBe(expectedTeamBTotal);
@@ -107,7 +107,6 @@ describe('TeamService', () => {
   it('should handle players with equal skills', () => {
     const equalSkillPlayers = mockPlayers.map(p => ({
       ...p,
-      skillSelf: 3,
       skillCaptain: 5.0,
       tsMu: 25.0,
     }));

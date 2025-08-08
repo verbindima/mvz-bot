@@ -20,14 +20,8 @@ export interface TeamBalance {
 @injectable()
 export class TeamService {
   public getPlayerWeight(player: Player): number {
-    switch (CONFIG.SCHEME) {
-      case 'self':
-        return player.skillSelf;
-      case 'ts':
-        return player.tsMu;
-      default:
-        return player.skillSelf;
-    }
+    // Теперь используем только TrueSkill рейтинг
+    return player.tsMu;
   }
 
   private calculateTotalWeight(players: Player[]): number {
@@ -35,14 +29,10 @@ export class TeamService {
   }
 
   public calculateWinProbability(teamAWeight: number, teamBWeight: number): number {
-    if (CONFIG.SCHEME === 'ts') {
-      const sigma = 8.333;
-      const diff = teamBWeight - teamAWeight;
-      return 1 / (1 + Math.pow(10, diff / (Math.sqrt(2) * sigma))) * 100;
-    } else {
-      const diff = teamBWeight - teamAWeight;
-      return Math.max(0, Math.min(100, 50 + (diff * 10)));
-    }
+    // Используем TrueSkill формулу
+    const sigma = 8.333;
+    const diff = teamBWeight - teamAWeight;
+    return 1 / (1 + Math.pow(10, diff / (Math.sqrt(2) * sigma))) * 100;
   }
 
   private snakeDraft(players: Player[]): { teamA: Player[]; teamB: Player[] } {
@@ -141,6 +131,6 @@ export class TeamService {
     const weakerTeam = balance.teamA.totalRating > balance.teamB.totalRating ? '🔵 синих' : '🔴 красных';
     const winProb = balance.teamA.totalRating > balance.teamB.totalRating ? balance.winProbability : 100 - balance.winProbability;
 
-    return `${teamAStr}\n\n${teamBStr}\n\n📊 Разница в силе: ${balance.difference.toFixed(1)} ${CONFIG.SCHEME === 'ts' ? 'μ' : 'балла'}\n🎯 Шансы на победу ${strongerTeam}: ${winProb.toFixed(0)}% vs ${weakerTeam}: ${(100 - winProb).toFixed(0)}%`;
+    return `${teamAStr}\n\n${teamBStr}\n\n📊 Разница в силе: ${balance.difference.toFixed(1)} μ\n🎯 Шансы на победу ${strongerTeam}: ${winProb.toFixed(0)}% vs ${weakerTeam}: ${(100 - winProb).toFixed(0)}%`;
   }
 }

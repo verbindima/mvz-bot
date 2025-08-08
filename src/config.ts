@@ -7,7 +7,7 @@ interface Config {
   ADMINS: number[];
   REMINDER_HOURS: number;
   DATABASE_URL: string;
-  SCHEME: 'self' | 'captain' | 'ts';
+  SCHEME: 'captain' | 'ts';
   PORT: number;
   NODE_ENV: string;
   GEMINI_API_KEY: string;
@@ -22,7 +22,7 @@ class ConfigManager {
       ADMINS: process.env.ADMINS?.split(',').map(id => parseInt(id)) || [],
       REMINDER_HOURS: parseInt(process.env.REMINDER_HOURS || '3'),
       DATABASE_URL: process.env.DATABASE_URL || 'file:./data/database.db',
-      SCHEME: (process.env.SCHEME as 'self' | 'captain' | 'ts') || 'self',
+      SCHEME: (process.env.SCHEME as 'captain' | 'ts') || 'ts',
       PORT: parseInt(process.env.PORT || '3000'),
       NODE_ENV: process.env.NODE_ENV || 'development',
       GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',
@@ -33,7 +33,7 @@ class ConfigManager {
     return this._config;
   }
 
-  setScheme(scheme: 'self' | 'captain' | 'ts'): void {
+  setScheme(scheme: 'captain' | 'ts'): void {
     this._config.SCHEME = scheme;
     process.env.SCHEME = scheme;
   }
@@ -44,9 +44,8 @@ export const CONFIG = configManager.CONFIG;
 export const setScheme = configManager.setScheme.bind(configManager);
 
 export const MESSAGES = {
-  WELCOME: '⚽ Добро пожаловать в бот для организации команд 8×8!\n\nВыберите ваш стартовый уровень игры (1-5):',
   ALREADY_REGISTERED: '✅ Вы уже зарегистрированы!',
-  REGISTRATION_COMPLETE: '🎉 Регистрация завершена! Уровень игры: {level}\n\n💡 <b>Что дальше?</b>\nТеперь вы можете записаться на следующую игру, нажав кнопку "⚽ Я играю" или используя команду /info для просмотра текущего состава.',
+  REGISTRATION_COMPLETE: '🎉 Регистрация завершена!\n\n💡 <b>Что дальше?</b>\nТеперь вы можете записаться на следующую игру, нажав кнопку "⚽ Я играю" или используя команду /info для просмотра текущего состава.',
   JOINED_GAME: '✅ <b>Вы записались на игру!</b>\n\nПозиция в основном составе: <b>#{position}</b>\n\n💡 Используйте /info для просмотра полного состава',
   JOINED_WAITLIST: '⏳ <b>Вы добавлены в список ожидания!</b>\n\nПозиция в очереди: <b>#{position}</b>\n\n💡 Как только освободится место в основном составе, вы автоматически переместитесь туда',
   LEFT_GAME: '❌ <b>Вы удалены из игры</b>\n\n💡 Чтобы записаться снова, используйте /info или нажмите "⚽ Я играю"',
@@ -61,23 +60,11 @@ export const MESSAGES = {
 };
 
 export const KEYBOARDS = {
-  SKILL_LEVELS: [
-    [{ text: '1 - Новичок', callback_data: 'skill_1' }],
-    [{ text: '2 - Любитель', callback_data: 'skill_2' }],
-    [{ text: '3 - Опытный', callback_data: 'skill_3' }],
-    [{ text: '4 - Продвинутый', callback_data: 'skill_4' }],
-    [{ text: '5 - Профи', callback_data: 'skill_5' }],
-  ],
   MAIN_MENU: [
     [{ text: '⚽ Я играю', callback_data: 'join' }],
     [{ text: '❌ Передумал', callback_data: 'leave' }],
     [{ text: '📊 Статистика', callback_data: 'stats' }],
     [{ text: '📋 Информация', callback_data: 'refresh_info' }],
-    [{ text: '❎ Закрыть', callback_data: 'close_menu' }],
-  ],
-  REGISTRATION_COMPLETE: [
-    [{ text: '⚽ Записаться на игру', callback_data: 'join' }],
-    [{ text: '📋 Посмотреть состав', callback_data: 'refresh_info' }],
     [{ text: '❎ Закрыть', callback_data: 'close_menu' }],
   ],
   ADMIN_TEAMS: [

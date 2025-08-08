@@ -85,7 +85,7 @@ export const add16Command = async (ctx: BotContext): Promise<void> => {
 
     let message = `✅ <b>Добавлено ${players.length} игроков в основной состав:</b>\n\n`;
     players.forEach((player, index) => {
-      message += `${index + 1}. ${player.firstName}${player.username ? ` @${player.username}` : ''} (${player.skillSelf})\n`;
+      message += `${index + 1}. ${player.firstName}${player.username ? ` @${player.username}` : ''}\n`;
     });
 
     const currentTotal = existingEntries.length + players.length;

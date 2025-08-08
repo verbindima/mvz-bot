@@ -34,18 +34,6 @@ export class PlayerService {
     }
   }
 
-  async setPlayerSkill(telegramId: number, skillLevel: number): Promise<void> {
-    try {
-      await prisma.player.update({
-        where: { telegramId: BigInt(telegramId) },
-        data: { skillSelf: skillLevel },
-      });
-      logger.info(`Player ${telegramId} set skill level to ${skillLevel}`);
-    } catch (error) {
-      logger.error('Error setting player skill:', error);
-      throw error;
-    }
-  }
 
   async getPlayer(telegramId: number): Promise<Player | null> {
     try {

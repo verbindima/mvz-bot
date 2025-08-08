@@ -10,8 +10,8 @@ export const ratingSettingsCommand = async (ctx: BotContext): Promise<void> => {
 
     let schemeDescription = '';
     switch (CONFIG.SCHEME) {
-      case 'self':
-        schemeDescription = 'Самооценка игроков (1-5)';
+      case 'captain':
+        schemeDescription = 'Оценка капитанов и админов';
         break;
       case 'ts':
         schemeDescription = 'TrueSkill - автоматическая адаптация';
@@ -32,7 +32,7 @@ export const ratingSettingsCommand = async (ctx: BotContext): Promise<void> => {
 
     if (CONFIG.ADMINS.includes(ctx.from!.id)) {
       message += `<b>🔧 Админские команды:</b>\n`;
-      message += `• <code>/scheme self</code> - переключить на самооценку\n`;
+      message += `• <code>/scheme captain</code> - переключить на оценки капитанов\n`;
       message += `• <code>/scheme ts</code> - переключить на TrueSkill\n`;
       message += `• <code>/result A 5-3 B</code> - внести результат (только TrueSkill)`;
     } else {

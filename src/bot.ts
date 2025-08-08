@@ -75,18 +75,6 @@ bot.command('payment_info', paymentInfoCommand);
 bot.command('confirm_player_payment', confirmPlayerPaymentCommand);
 bot.command('payment_status', paymentStatusCommand);
 
-bot.action(/^skill_(\d+)$/, async (ctx) => {
-  const skillLevel = parseInt(ctx.match[1]);
-  await ctx.playerService.setPlayerSkill(ctx.from.id, skillLevel);
-
-  await ctx.editMessageText(MESSAGES.REGISTRATION_COMPLETE.replace('{level}', skillLevel.toString()), {
-    parse_mode: 'HTML',
-    reply_markup: {
-      inline_keyboard: KEYBOARDS.REGISTRATION_COMPLETE,
-    },
-  });
-  await ctx.answerCbQuery();
-});
 
 bot.action('join', async (ctx) => {
   const result = await ctx.gameService.joinGame(ctx.from.id);

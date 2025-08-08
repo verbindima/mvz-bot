@@ -52,12 +52,12 @@ export const schemeCommand = async (ctx: BotContext): Promise<void> => {
 
     const args = ('text' in ctx.message! && ctx.message.text) ? ctx.message.text.split(' ') : [];
     if (!args || args.length !== 2) {
-      await ctx.reply('Использование: /scheme <self|ts>');
+      await ctx.reply('Использование: /scheme <captain|ts>');
       return;
     }
 
-    const scheme = args[1] as 'self' | 'ts';
-    if (!['self', 'ts'].includes(scheme)) {
+    const scheme = args[1] as 'captain' | 'ts';
+    if (!['captain', 'ts'].includes(scheme)) {
       await ctx.reply('Доступные схемы: self, ts');
       return;
     }
