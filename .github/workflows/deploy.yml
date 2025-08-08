@@ -61,13 +61,19 @@ jobs:
         with:
           name: deployment
 
+      - name: Debug secrets
+        run: |
+          echo "SERVER_HOST is set: ${{ secrets.SERVER_HOST != '' }}"
+          echo "SERVER_USER is set: ${{ secrets.SERVER_USER != '' }}"
+          echo "SERVER_SSH_KEY is set: ${{ secrets.SERVER_SSH_KEY != '' }}"
+
       - name: Deploy to server
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          port: ${{ secrets.SERVER_PORT || 22 }}
+          port: ${{ secrets.SERVER_PORT || '22' }}
           script_stop: true
           script: |
             # Set variables
