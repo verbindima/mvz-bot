@@ -3,6 +3,8 @@ import { CONFIG } from '../config';
 import { prisma } from '../utils/database';
 import { container } from 'tsyringe';
 import { RatingService } from '../services/rating.service';
+import { StatisticsService } from '../services/statistics.service';
+import { TeamPlayerService } from '../services/team-player.service';
 
 export const addHistoryCommand = async (ctx: BotContext): Promise<void> => {
   try {
@@ -28,7 +30,7 @@ export const addHistoryCommand = async (ctx: BotContext): Promise<void> => {
         `Или просто результат без команд (обновит всех участников текущей недели):\n` +
         `/add_history\n` +
         `32/2024 A 7-2 B`
-      , { parse_mode: 'HTML' });
+        , { parse_mode: 'HTML' });
       return;
     }
 
@@ -121,21 +123,8 @@ export const addHistoryCommand = async (ctx: BotContext): Promise<void> => {
           teamBPlayers = weekPlayers.slice(8, 16).map(entry => entry.playerId);
         }
 
-        // Определяем победителей и проигравших
-        const ratingService = container.resolve(RatingService);
-
-        if (score1 > score2) {
-          const winners = team1 === 'A' ? teamAPlayers : teamBPlayers;
-          const losers = team1 === 'A' ? teamBPlayers : teamAPlayers;
-          await ratingService.updateTrueSkill(winners, losers);
-        } else if (score2 > score1) {
-          const winners = team2 === 'A' ? teamAPlayers : teamBPlayers;
-          const losers = team2 === 'A' ? teamBPlayers : teamAPlayers;
-          await ratingService.updateTrueSkill(winners, losers);
-        }
-
-        // Сохраняем результат матча
-        await prisma.gameSession.upsert({
+        // Создаем или получаем игровую сессию
+        const gameSession = await prisma.gameSession.upsert({
           where: { week_year: { week, year } },
           update: {
             teamA: team1 === 'A' ? `${score1}` : `${score2}`,
@@ -151,7 +140,42 @@ export const addHistoryCommand = async (ctx: BotContext): Promise<void> => {
           },
         });
 
-        results.push(`✅ Неделя ${week}/${year}: ${team1} ${score1}-${score2} ${team2}`);
+        // Сохраняем составы команд для статистики
+        const teamPlayerService = container.resolve(TeamPlayerService);
+        const teamAPlayerObjects = await prisma.player.findMany({
+          where: { id: { in: teamAPlayers } }
+        });
+        const teamBPlayerObjects = await prisma.player.findMany({
+          where: { id: { in: teamBPlayers } }
+        });
+
+        await teamPlayerService.saveTeamComposition(
+          gameSession.id,
+          teamAPlayerObjects,
+          teamBPlayerObjects
+        );
+
+        // Сохраняем результат матча для статистики
+        const statisticsService = container.resolve(StatisticsService);
+        const teamAScore = team1 === 'A' ? score1 : score2;
+        const teamBScore = team1 === 'A' ? score2 : score1;
+
+        await statisticsService.saveMatchResult(gameSession.id, teamAScore, teamBScore);
+
+        // Определяем победителей и проигравших, обновляем TrueSkill
+        const ratingService = container.resolve(RatingService);
+
+        if (score1 > score2) {
+          const winners = team1 === 'A' ? teamAPlayers : teamBPlayers;
+          const losers = team1 === 'A' ? teamBPlayers : teamAPlayers;
+          await ratingService.updateTrueSkill(winners, losers);
+        } else if (score2 > score1) {
+          const winners = team2 === 'A' ? teamAPlayers : teamBPlayers;
+          const losers = team2 === 'A' ? teamBPlayers : teamAPlayers;
+          await ratingService.updateTrueSkill(winners, losers);
+        }
+
+        results.push(`✅ Неделя ${week}/${year}: ${team1} ${score1}-${score2} ${team2} (статистика обновлена)`);
         processed++;
 
       } catch (error) {
@@ -200,7 +224,7 @@ export const bulkRateCommand = async (ctx: BotContext): Promise<void> => {
         `user2 +1\n` +
         `user3 0\n` +
         `user4 -1`
-      , { parse_mode: 'HTML' });
+        , { parse_mode: 'HTML' });
       return;
     }
 
