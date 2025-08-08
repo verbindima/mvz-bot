@@ -36,8 +36,8 @@ jobs:
         run: |
           tar -czf deployment.tar.gz \
             dist/ \
-            node_modules/ \
             package.json \
+            yarn.lock \
             prisma/ \
             .env.example \
             ecosystem.config.js
@@ -74,7 +74,7 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT || '22' }}
-          source: "dist,node_modules,package.json,prisma,.env.example,ecosystem.config.js"
+          source: "dist,package.json,prisma,.env.example,ecosystem.config.js,yarn.lock"
           target: "/tmp/mvz-deploy"
 
       - name: Deploy to server
@@ -111,6 +111,9 @@ jobs:
             mkdir -p $APP_DIR
             cp -r /tmp/mvz-deploy/* $APP_DIR/
             cd $APP_DIR
+            
+            # Install dependencies
+            yarn install --production
             
             # Setup environment if not exists
             if [ ! -f .env ]; then
