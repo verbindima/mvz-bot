@@ -3,6 +3,7 @@ import { BotContext } from '../bot';
 import { CONFIG, MESSAGES, setScheme } from '../config';
 import { RatingService } from '../services/rating.service';
 import { TeamPlayerService } from '../services/team-player.service';
+import { StatisticsService } from '../services/statistics.service';
 import { prisma } from '../utils/database';
 
 export const rateCommand = async (ctx: BotContext): Promise<void> => {
@@ -118,6 +119,14 @@ export const resultCommand = async (ctx: BotContext): Promise<void> => {
     const teamAPlayers = teamComposition.teamA.map(p => p.id);
     const teamBPlayers = teamComposition.teamB.map(p => p.id);
 
+    // Сохраняем результат матча для статистики
+    const statisticsService = container.resolve(StatisticsService);
+    const teamAScore = team1 === 'A' ? score1 : score2;
+    const teamBScore = team1 === 'A' ? score2 : score1;
+    
+    await statisticsService.saveMatchResult(gameSession.id, teamAScore, teamBScore);
+
+    // Обновляем TrueSkill рейтинги
     const ratingService = container.resolve(RatingService);
 
     if (score1 > score2) {
@@ -130,7 +139,7 @@ export const resultCommand = async (ctx: BotContext): Promise<void> => {
       await ratingService.updateTrueSkill(winners, losers);
     }
 
-    await ctx.reply(`✅ Результат матча обработан: ${team1} ${score1}-${score2} ${team2}`);
+    await ctx.reply(`✅ Результат матча обработан: ${team1} ${score1}-${score2} ${team2}\n📊 Статистика игроков обновлена`);
   } catch (error) {
     console.error('Error in result command:', error);
     await ctx.reply('Произошла ошибка при обработке результата.');

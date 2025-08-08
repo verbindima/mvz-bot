@@ -11,7 +11,8 @@ import { startCommand } from './commands/start';
 import { joinCommand, leaveCommand } from './commands/game';
 import { teamsCommand } from './commands/teams';
 import { rateCommand, schemeCommand, resultCommand, finishGameCommand } from './commands/rating';
-import { playersCommand, exportCommand, statsCommand } from './commands/admin';
+import { playersCommand, exportCommand } from './commands/admin';
+import { statsCommand, topPlayersCommand } from './commands/stats';
 import { helpCommand } from './commands/help';
 import { add16Command, clearAndAdd16Command, resetWeekCommand, addPlayerCommand } from './commands/bulk';
 import { registerPlayerCommand, bulkRegisterCommand, editPlayerCommand, linkPlayerCommand } from './commands/register';
@@ -220,6 +221,16 @@ bot.action('rating_settings', async (ctx) => {
 
 bot.action('payment_info', async (ctx) => {
   await paymentInfoCommand(ctx);
+  await ctx.answerCbQuery();
+});
+
+bot.action('refresh_stats', async (ctx) => {
+  await statsCommand(ctx);
+  await ctx.answerCbQuery();
+});
+
+bot.action('top_players', async (ctx) => {
+  await topPlayersCommand(ctx);
   await ctx.answerCbQuery();
 });
 

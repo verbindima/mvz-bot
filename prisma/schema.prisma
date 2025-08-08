@@ -73,6 +73,7 @@ model GameSession {
 
   // Relations
   teamPlayers     TeamPlayer[]
+  matchResult     MatchResult?
 
   @@unique([week, year])
   @@map("game_sessions")
@@ -91,5 +92,19 @@ model TeamPlayer {
 
   @@unique([gameSessionId, playerId])
   @@map("team_players")
+}
+
+model MatchResult {
+  id            Int         @id @default(autoincrement())
+  gameSessionId Int         @unique
+  teamAScore    Int
+  teamBScore    Int
+  winnerTeam    String      // "A" or "B"
+  createdAt     DateTime    @default(now())
+
+  // Relations
+  gameSession   GameSession @relation(fields: [gameSessionId], references: [id], onDelete: Cascade)
+
+  @@map("match_results")
 }
 
