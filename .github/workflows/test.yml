@@ -1,0 +1,73 @@
+name: Test & Lint
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+  push:
+    branches: [ develop, feature/* ]
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    name: Test & Lint
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_USER: postgres
+          POSTGRES_DB: mvz_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Lint code
+        run: yarn lint
+
+      - name: Type check
+        run: yarn tsc --noEmit
+
+      - name: Setup test database
+        env:
+          DATABASE_URL: postgresql://postgres:test@localhost:5432/mvz_test
+        run: |
+          npx prisma generate
+          npx prisma db push
+
+      - name: Run tests
+        env:
+          DATABASE_URL: postgresql://postgres:test@localhost:5432/mvz_test
+          NODE_ENV: test
+        run: yarn test
+
+      - name: Build project
+        run: yarn build
+
+      - name: Test build
+        run: |
+          if [ ! -f "dist/bot.js" ]; then
+            echo "Build failed - bot.js not found"
+            exit 1
+          fi
+          echo "Build successful"

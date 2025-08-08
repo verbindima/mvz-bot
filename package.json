@@ -14,6 +14,7 @@
     "format": "prettier --write src/**/*.ts",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
+    "db:migrate": "prisma migrate deploy",
     "db:studio": "prisma studio"
   },
   "keywords": [
