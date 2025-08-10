@@ -7,7 +7,7 @@ interface Config {
   ADMINS: number[];
   REMINDER_HOURS: number;
   DATABASE_URL: string;
-  SCHEME: 'captain' | 'ts';
+  SCHEME: 'ts';
   PORT: number;
   NODE_ENV: string;
   GEMINI_API_KEY: string;
@@ -22,7 +22,7 @@ class ConfigManager {
       ADMINS: process.env.ADMINS?.split(',').map(id => parseInt(id)) || [],
       REMINDER_HOURS: parseInt(process.env.REMINDER_HOURS || '3'),
       DATABASE_URL: process.env.DATABASE_URL || 'file:./data/database.db',
-      SCHEME: (process.env.SCHEME as 'captain' | 'ts') || 'ts',
+      SCHEME: 'ts',
       PORT: parseInt(process.env.PORT || '3000'),
       NODE_ENV: process.env.NODE_ENV || 'development',
       GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',
@@ -32,16 +32,10 @@ class ConfigManager {
   get CONFIG(): Config {
     return this._config;
   }
-
-  setScheme(scheme: 'captain' | 'ts'): void {
-    this._config.SCHEME = scheme;
-    process.env.SCHEME = scheme;
-  }
 }
 
 const configManager = new ConfigManager();
 export const CONFIG = configManager.CONFIG;
-export const setScheme = configManager.setScheme.bind(configManager);
 
 export const MESSAGES = {
   ALREADY_REGISTERED: '✅ Вы уже зарегистрированы!',
@@ -54,9 +48,6 @@ export const MESSAGES = {
   TEAMS_GENERATED: '⚽ Команды сформированы:\n\n{teams}\n\nВероятность победы команды A: {probability}%',
   ACCESS_DENIED: '🚫 У вас нет доступа к этой команде',
   TEAMS_CONFIRMED: '✅ Команды подтверждены и опубликованы!',
-  INVALID_RATING: '❌ <b>Неверный формат рейтинга</b>\n\nИспользуйте: <code>/rate @username +1</code> или <code>/rate @username -1</code>\n\n💡 Доступные значения: +1, 0, -1',
-  RATING_UPDATED: '✅ Рейтинг обновлен: {username} {delta}',
-  PLAYER_NOT_FOUND: '❌ <b>Игрок не найден</b>\n\nВозможно, игрок еще не зарегистрировался через /start или указан неверный username',
 };
 
 export const KEYBOARDS = {

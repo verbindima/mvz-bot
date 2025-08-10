@@ -1,6 +1,6 @@
 import { container } from 'tsyringe';
 import { BotContext } from '../bot';
-import { CONFIG, MESSAGES, setScheme } from '../config';
+import { CONFIG, MESSAGES } from '../config';
 import { RatingService } from '../services/rating.service';
 import { TeamPlayerService } from '../services/team-player.service';
 import { StatisticsService } from '../services/statistics.service';
@@ -8,38 +8,10 @@ import { prisma } from '../utils/database';
 
 export const rateCommand = async (ctx: BotContext): Promise<void> => {
   try {
-    if (!CONFIG.ADMINS.includes(ctx.from!.id)) {
-      await ctx.reply(MESSAGES.ACCESS_DENIED);
-      return;
-    }
-
-    const args = ('text' in ctx.message! && ctx.message.text) ? ctx.message.text.split(' ') : [];
-    if (!args || args.length !== 3) {
-      await ctx.reply(MESSAGES.INVALID_RATING);
-      return;
-    }
-
-    const username = args[1].replace('@', '');
-    const delta = parseInt(args[2]);
-
-    if (isNaN(delta) || delta < -1 || delta > 1) {
-      await ctx.reply(MESSAGES.INVALID_RATING);
-      return;
-    }
-
-    const player = await prisma.player.findFirst({
-      where: { username },
-    });
-
-    if (!player) {
-      await ctx.reply(MESSAGES.PLAYER_NOT_FOUND);
-      return;
-    }
-
-    await ctx.reply('❌ Команда /rate больше не поддерживается. Captain рейтинг удален из системы.');
+    await ctx.reply('❌ Команда /rate больше не поддерживается. Система капитанских оценок удалена.');
   } catch (error) {
     console.error('Error in rate command:', error);
-    await ctx.reply('Произошла ошибка при обновлении рейтинга.');
+    await ctx.reply('Произошла ошибка при обработке команды.');
   }
 };
 
@@ -50,27 +22,10 @@ export const schemeCommand = async (ctx: BotContext): Promise<void> => {
       return;
     }
 
-    const args = ('text' in ctx.message! && ctx.message.text) ? ctx.message.text.split(' ') : [];
-    if (!args || args.length !== 2) {
-      await ctx.reply('Использование: /scheme <captain|ts>');
-      return;
-    }
-
-    const scheme = args[1] as 'captain' | 'ts';
-    if (!['captain', 'ts'].includes(scheme)) {
-      await ctx.reply('Доступные схемы: self, ts');
-      return;
-    }
-
-    const ratingService = container.resolve(RatingService);
-    await ratingService.setRatingScheme(scheme);
-
-    setScheme(scheme);
-
-    await ctx.reply(`✅ Схема рейтинга изменена на: ${scheme}`);
+    await ctx.reply('Схема рейтинга фиксирована: используется только TrueSkill.');
   } catch (error) {
     console.error('Error in scheme command:', error);
-    await ctx.reply('Произошла ошибка при изменении схемы рейтинга.');
+    await ctx.reply('Произошла ошибка при обработке команды схемы рейтинга.');
   }
 };
 

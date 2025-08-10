@@ -77,7 +77,6 @@ ssh $SERVER_USER@$SERVER_IP << 'EOF'
     echo "GEMINI_API_KEY=your_gemini_key_here" >> .env
     echo "NODE_ENV=production" >> .env
     echo "DATABASE_URL=file:./data/database.db" >> .env
-    echo "SCHEME=self" >> .env
     echo ""
     echo "⚠️  Please edit /opt/mvz-bot/.env with your actual tokens!"
   fi

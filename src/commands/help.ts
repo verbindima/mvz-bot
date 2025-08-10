@@ -31,8 +31,6 @@ export const helpCommand = async (ctx: BotContext): Promise<void> => {
         message += `<b>👑 Админские команды:</b>\n`;
         message += `/teams - Сгенерировать команды\n`;
         message += `/players - Список всех игроков\n`;
-        message += `/rate @username ±1 - Обновить рейтинг\n`;
-        message += `/scheme &lt;captain|ts&gt; - Схема рейтинга\n`;
         message += `/result A 5-3 B - Результат матча\n`;
         message += `/finish_game confirm - Завершить игру и сбросить сессию\n`;
         message += `/register username "Имя" - Зарегистрировать игрока\n`;
@@ -52,8 +50,7 @@ export const helpCommand = async (ctx: BotContext): Promise<void> => {
       message += `/ai вопрос - Задать вопрос AI\n\n`;
     }
     
-    message += `<b>📊 Схемы рейтинга:</b>\n`;
-    message += `• <b>captain</b> - оценка капитанов\n`;
+    message += `<b>📊 Система рейтинга:</b>\n`;
     message += `• <b>ts</b> - TrueSkill система\n\n`;
     
     message += `<b>⚽ Как играть:</b>\n`;
@@ -62,9 +59,7 @@ export const helpCommand = async (ctx: BotContext): Promise<void> => {
     message += `3. Ждите формирования команд (16 игроков)\n`;
     message += `4. Получите уведомление о составах\n\n`;
     
-    // Получаем актуальную схему рейтинга из переменной окружения
-    const currentScheme = process.env.SCHEME || CONFIG.SCHEME;
-    message += `Текущая схема рейтинга: <b>${currentScheme}</b>`;
+    message += `Схема рейтинга: <b>TrueSkill</b>`;
     
     await ctx.reply(message, { parse_mode: 'HTML' });
   } catch (error) {

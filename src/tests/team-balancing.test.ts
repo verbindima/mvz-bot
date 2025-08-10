@@ -33,25 +33,7 @@ describe('Team Balancing Algorithm', () => {
   };
 
 
-  it('should balance teams with captain rating scheme', () => {
-    process.env.SCHEME = 'captain';
-    const players = createMockPlayers(16);
-    
-    const balance = teamService.generateBalancedTeams(players);
-    
-    expect(balance.teamA.players).toHaveLength(8);
-    expect(balance.teamB.players).toHaveLength(8);
-    expect(balance.difference).toBeLessThan(1.5);
-    
-    console.log('Captain Scheme Balance:');
-    console.log(`Team A: ${balance.teamA.totalRating.toFixed(2)}`);
-    console.log(`Team B: ${balance.teamB.totalRating.toFixed(2)}`);
-    console.log(`Difference: ${balance.difference.toFixed(2)}`);
-    console.log(`Win Probability: ${balance.winProbability.toFixed(1)}%`);
-  });
-
   it('should balance teams with TrueSkill rating scheme', () => {
-    process.env.SCHEME = 'ts';
     const players = createMockPlayers(16);
     
     const balance = teamService.generateBalancedTeams(players);
@@ -68,7 +50,6 @@ describe('Team Balancing Algorithm', () => {
   });
 
   it('should test with extreme TrueSkill differences', () => {
-    process.env.SCHEME = 'ts';
     const players: Player[] = [];
     
     // Create 8 high-skill players (5) and 8 low-skill players (1)
@@ -120,7 +101,6 @@ describe('Team Balancing Algorithm', () => {
   });
 
   it('should demonstrate Snake Draft algorithm', () => {
-    process.env.SCHEME = 'ts';
     const players = createMockPlayers(16);
     // Sort by TrueSkill for demonstration
     players.sort((a, b) => b.tsMu - a.tsMu);

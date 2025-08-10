@@ -6,17 +6,9 @@ export const ratingSettingsCommand = async (ctx: BotContext): Promise<void> => {
   try {
     let message = `📊 <b>Текущие настройки системы</b>\n\n`;
 
-    message += `<b>⚙️ Активная схема:</b> <code>${CONFIG.SCHEME}</code>\n\n`;
+    message += `<b>⚙️ Схема рейтинга:</b> <code>${CONFIG.SCHEME}</code>\n\n`;
 
-    let schemeDescription = '';
-    switch (CONFIG.SCHEME) {
-      case 'captain':
-        schemeDescription = 'Оценка капитанов и админов';
-        break;
-      case 'ts':
-        schemeDescription = 'TrueSkill - автоматическая адаптация';
-        break;
-    }
+    const schemeDescription = 'TrueSkill - автоматическая адаптация';
 
     message += `<b>📋 Описание:</b> ${schemeDescription}\n\n`;
 
@@ -32,12 +24,10 @@ export const ratingSettingsCommand = async (ctx: BotContext): Promise<void> => {
 
     if (CONFIG.ADMINS.includes(ctx.from!.id)) {
       message += `<b>🔧 Админские команды:</b>\n`;
-      message += `• <code>/scheme captain</code> - переключить на оценки капитанов\n`;
-      message += `• <code>/scheme ts</code> - переключить на TrueSkill\n`;
-      message += `• <code>/result A 5-3 B</code> - внести результат (только TrueSkill)`;
+      message += `• <code>/result A 5-3 B</code> - внести результат матча`;
     } else {
       message += `<b>💡 Информация:</b>\n`;
-      message += `Схему рейтинга могут изменять только администраторы.`;
+      message += `Схема рейтинга фиксирована и не может быть изменена.`;
     }
 
     await safeEditOrReply(ctx, message, {
