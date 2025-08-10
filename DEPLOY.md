@@ -31,7 +31,6 @@ chmod +x deploy.sh
    GEMINI_API_KEY=your_google_gemini_api_key_here
    NODE_ENV=production
    DATABASE_URL=file:./data/database.db
-   SCHEME=self
    ```
 
 4. **Перезапустите бота:**
@@ -93,7 +92,6 @@ BOT_TOKEN=your_bot_token_here
 GEMINI_API_KEY=your_gemini_key_here
 NODE_ENV=production
 DATABASE_URL=file:./data/database.db
-SCHEME=self
 EOF
 ```
 

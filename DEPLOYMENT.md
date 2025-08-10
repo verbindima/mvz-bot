@@ -75,9 +75,6 @@ NODE_ENV=production
 # PostgreSQL Database
 DATABASE_URL=postgresql://mvz_user:your_secure_password@localhost:5432/mvz_bot
 
-# Rating scheme
-SCHEME=self
-
 # Admin Telegram IDs
 ADMINS=123456789,987654321
 ```

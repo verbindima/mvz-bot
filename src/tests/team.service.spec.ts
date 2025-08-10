@@ -53,7 +53,6 @@ describe('TeamService', () => {
   });
 
   it('should calculate team totals correctly using TrueSkill', () => {
-    process.env.SCHEME = 'ts';
     const result = teamService.generateBalancedTeams(mockPlayers);
     
     const expectedTeamATotal = result.teamA.players.reduce((sum, p) => sum + p.tsMu, 0);

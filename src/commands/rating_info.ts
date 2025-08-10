@@ -1,5 +1,4 @@
 import { BotContext } from '../bot';
-import { CONFIG } from '../config';
 import { safeEditOrReply } from '../utils/safe-edit';
 
 export const ratingInfoCommand = async (ctx: BotContext): Promise<void> => {
@@ -22,9 +21,8 @@ export const ratingInfoCommand = async (ctx: BotContext): Promise<void> => {
     message1 += `• Каждый обмен проверяется на улучшение баланса\n`;
     message1 += `• Процесс продолжается пока разница не станет меньше 1.5 балла\n\n`;
 
-    message1 += `<b>📈 Две схемы рейтинга:</b>\n\n`;
+    message1 += `<b>📈 Схема рейтинга:</b>\n`;
 
-    message1 += `<b>🔰 Self:</b> Рейтинг 1-5, самооценка\n`;
     message1 += `<b>🧠 TrueSkill:</b> Автоматическая адаптация по результатам`;
 
     await safeEditOrReply(ctx, message1, {
