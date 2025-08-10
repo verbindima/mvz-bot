@@ -1,6 +1,6 @@
 import { container } from 'tsyringe';
 import { BotContext } from '../bot';
-import { MESSAGES, KEYBOARDS } from '../config';
+import { KEYBOARDS } from '../config';
 import { TeamService } from '../services/team.service';
 import { TeamPlayerService } from '../services/team-player.service';
 import { checkAdminPrivateOnly } from '../utils/chat';
@@ -13,6 +13,9 @@ export const teamsCommand = async (ctx: BotContext): Promise<void> => {
       return;
     }
 
+    const text = 'text' in ctx.message! ? ctx.message.text : '';
+    const query = text.replace('/teams', '').trim();
+
     const { main } = await ctx.gameService.getWeekPlayers();
 
     if (main.length < 16) {
@@ -22,21 +25,46 @@ export const teamsCommand = async (ctx: BotContext): Promise<void> => {
 
     const teamService = container.resolve(TeamService);
     const balance = teamService.generateBalancedTeams(main);
-    
+
+    let teamNames = { teamA: '🔴', teamB: '🔵' };
+
+    if (query) {
+      if (query.toLowerCase() === 'ai') {
+        await ctx.reply('🤖 Генерирую названия команд...');
+        const response = await ctx.aiService.generateResponse(
+          'Придумай два смешных и классных названия футбольных команд. Ответь в формате "Название1;Название2" без лишнего текста.'
+        );
+        const parts = response.split(/;|\n|,|\|/).map(p => p.trim()).filter(Boolean);
+        if (parts.length >= 2) {
+          teamNames = { teamA: parts[0], teamB: parts[1] };
+        }
+      } else {
+        const parts = query.split(/;|,|\n/).map(p => p.trim()).filter(Boolean);
+        if (parts.length >= 2) {
+          teamNames = { teamA: parts[0], teamB: parts[1] };
+        }
+      }
+    }
+
+    // Если используются стандартные названия, случайным образом выбираем цвет
+    if (!query && Math.random() < 0.5) {
+      teamNames = { teamA: '🔵', teamB: '🔴' };
+    }
+
     // Сохраняем составы команд в базу данных
     const { week, year } = getCurrentWeek();
     
     const gameSession = await prisma.gameSession.upsert({
       where: { week_year: { week, year } },
       update: {
-        teamA: '',
-        teamB: '',
+        teamA: teamNames.teamA,
+        teamB: teamNames.teamB,
       },
       create: {
         week,
         year,
-        teamA: '',
-        teamB: '',
+        teamA: teamNames.teamA,
+        teamB: teamNames.teamB,
       },
     });
 
@@ -48,7 +76,7 @@ export const teamsCommand = async (ctx: BotContext): Promise<void> => {
       balance.teamB.players
     );
 
-    const message = teamService.formatTeamsMessage(balance);
+    const message = teamService.formatTeamsMessage(balance, teamNames);
 
     await ctx.reply(message, {
       reply_markup: {

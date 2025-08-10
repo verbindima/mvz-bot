@@ -24,7 +24,9 @@ const generateInfoMessage = async (ctx: BotContext, playerId: number) => {
   // Проверяем статус текущего игрока
   let playerStatus = '❌ Вы не записаны на игру';
   let playerPosition = '';
-  let playerTeam = '';
+
+  const teamAName = escapeHtml(gameSession?.teamA || '🔴');
+  const teamBName = escapeHtml(gameSession?.teamB || '🔵');
 
   const playerInMain = main.find(p => p.id === playerId);
   const playerInWaiting = waiting.find(p => p.id === playerId);
@@ -36,11 +38,9 @@ const generateInfoMessage = async (ctx: BotContext, playerId: number) => {
       const playerTeamResult = await teamPlayerService.getPlayerTeam(gameSession.id, playerId);
 
       if (playerTeamResult === 'A') {
-        playerStatus = '🔴 Вы в команде A';
-        playerTeam = 'A';
+        playerStatus = `🏅 Вы в команде ${teamAName}`;
       } else if (playerTeamResult === 'B') {
-        playerStatus = '🔵 Вы в команде B';
-        playerTeam = 'B';
+        playerStatus = `🏅 Вы в команде ${teamBName}`;
       } else {
         playerStatus = '✅ Вы в основном составе';
       }
@@ -112,9 +112,10 @@ const generateInfoMessage = async (ctx: BotContext, playerId: number) => {
       const difference = Math.abs(teamAWeight - teamBWeight);
       const winProbability = teamService.calculateWinProbability(teamAWeight, teamBWeight);
 
-      mainPlayersText = `<b>🔴 Команда A</b> (${teamAWeight.toFixed(1)}):\n${teamAStr}\n\n` +
-                       `<b>🔵 Команда B</b> (${teamBWeight.toFixed(1)}):\n${teamBStr}\n\n` +
-                       `📊 Разница: ${difference.toFixed(2)} | 🎯 Вероятность победы красных: ${winProbability.toFixed(1)}%`;
+      mainPlayersText =
+        `<b>${teamAName}</b> (${teamAWeight.toFixed(1)}):\n${teamAStr}\n\n` +
+        `<b>${teamBName}</b> (${teamBWeight.toFixed(1)}):\n${teamBStr}\n\n` +
+        `📊 Разница в силе: ${difference.toFixed(2)} μ | 🎯 Шансы на победу ${teamAName}: ${winProbability.toFixed(1)}% vs ${teamBName}: ${(100 - winProbability).toFixed(1)}%`;
     }
   } else {
     // Обычный список если команды не утверждены
