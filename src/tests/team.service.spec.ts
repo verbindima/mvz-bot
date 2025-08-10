@@ -87,20 +87,28 @@ describe('TeamService', () => {
   it('should format team message correctly', () => {
     const result = teamService.generateBalancedTeams(mockPlayers);
     const message = teamService.formatTeamsMessage(result);
-    
+
     expect(message).toContain('🔴');
     expect(message).toContain('🔵');
-    expect(message).toContain('Разница:');
-    expect(message).toContain('Вероятность победы красных:');
+    expect(message).toContain('Разница в силе:');
+    expect(message).toContain('Шансы на победу');
     expect(message).toContain('%');
-    
+
     result.teamA.players.forEach(player => {
       expect(message).toContain(player.firstName);
     });
-    
+
     result.teamB.players.forEach(player => {
       expect(message).toContain(player.firstName);
     });
+  });
+
+  it('should format message with custom team names', () => {
+    const result = teamService.generateBalancedTeams(mockPlayers);
+    const message = teamService.formatTeamsMessage(result, { teamA: 'Львы', teamB: 'Тигры' });
+
+    expect(message).toContain('Львы');
+    expect(message).toContain('Тигры');
   });
 
   it('should handle players with equal skills', () => {

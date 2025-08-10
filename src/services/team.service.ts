@@ -110,7 +110,10 @@ export class TeamService {
     };
   }
 
-  public formatTeamsMessage(balance: TeamBalance): string {
+  public formatTeamsMessage(
+    balance: TeamBalance,
+    teamNames: { teamA: string; teamB: string } = { teamA: '🔴', teamB: '🔵' }
+  ): string {
     const formatTeam = (team: Team, name: string): string => {
       const playersList = team.players
         .map((p, i) => {
@@ -120,17 +123,29 @@ export class TeamService {
         })
         .join('\n');
 
-      return `<b>${name} команда</b> (${team.totalRating.toFixed(1)}):\n${playersList}`;
+      const escapedTeamName = escapeHtml(name);
+      return `<b>${escapedTeamName} команда</b> (${team.totalRating.toFixed(1)}):\n${playersList}`;
     };
 
-    const teamAStr = formatTeam(balance.teamA, '🔴');
-    const teamBStr = formatTeam(balance.teamB, '🔵');
+    const teamAStr = formatTeam(balance.teamA, teamNames.teamA);
+    const teamBStr = formatTeam(balance.teamB, teamNames.teamB);
 
     // Определяем, какая команда сильнее
-    const strongerTeam = balance.teamA.totalRating > balance.teamB.totalRating ? '🔴 красных' : '🔵 синих';
-    const weakerTeam = balance.teamA.totalRating > balance.teamB.totalRating ? '🔵 синих' : '🔴 красных';
-    const winProb = balance.teamA.totalRating > balance.teamB.totalRating ? balance.winProbability : 100 - balance.winProbability;
+    const strongerTeamName =
+      balance.teamA.totalRating > balance.teamB.totalRating ? teamNames.teamA : teamNames.teamB;
+    const weakerTeamName =
+      balance.teamA.totalRating > balance.teamB.totalRating ? teamNames.teamB : teamNames.teamA;
+    const winProb =
+      balance.teamA.totalRating > balance.teamB.totalRating
+        ? balance.winProbability
+        : 100 - balance.winProbability;
 
-    return `${teamAStr}\n\n${teamBStr}\n\n📊 Разница в силе: ${balance.difference.toFixed(1)} μ\n🎯 Шансы на победу ${strongerTeam}: ${winProb.toFixed(0)}% vs ${weakerTeam}: ${(100 - winProb).toFixed(0)}%`;
+    const escapedStronger = escapeHtml(strongerTeamName);
+    const escapedWeaker = escapeHtml(weakerTeamName);
+    return (
+      `${teamAStr}\n\n${teamBStr}\n\n` +
+      `📊 Разница в силе: ${balance.difference.toFixed(1)} μ\n` +
+      `🎯 Шансы на победу ${escapedStronger}: ${winProb.toFixed(0)}% vs ${escapedWeaker}: ${(100 - winProb).toFixed(0)}%`
+    );
   }
 }

@@ -46,20 +46,28 @@ export const editTeamsCommand = async (ctx: BotContext): Promise<void> => {
     const teamBPlayers = [...teamComposition.teamB].sort((a, b) => a.firstName.localeCompare(b.firstName));
 
     // Форматируем сообщение для редактирования
-    const formatTeamForEdit = (players: any[], teamName: string, teamLetter: 'A' | 'B'): string => {
-      return players.map((p, i) => {
-        const escapedName = escapeHtml(p.firstName);
-        const usernameStr = p.username ? ` (@${p.username})` : '';
-        return `${i + 1}. ${escapedName}${usernameStr}`;
-      }).join('\n');
+    const formatTeamForEdit = (players: any[]): string => {
+      return players
+        .map((p, i) => {
+          const escapedName = escapeHtml(p.firstName);
+          const usernameStr = p.username ? ` (@${p.username})` : '';
+          return `${i + 1}. ${escapedName}${usernameStr}`;
+        })
+        .join('\n');
     };
 
-    const teamAStr = formatTeamForEdit(teamAPlayers, '🔴', 'A');
-    const teamBStr = formatTeamForEdit(teamBPlayers, '🔵', 'B');
+    const teamAStr = formatTeamForEdit(teamAPlayers);
+    const teamBStr = formatTeamForEdit(teamBPlayers);
 
-    const message = `✏️ <b>Ручная правка команд</b>\n\n` +
-      `<b>🔴 Команда A:</b>\n${teamAStr}\n\n` +
-      `<b>🔵 Команда B:</b>\n${teamBStr}\n\n` +
+    const teamANameRaw = gameSession.teamA || '🔴';
+    const teamBNameRaw = gameSession.teamB || '🔵';
+    const teamAName = escapeHtml(teamANameRaw);
+    const teamBName = escapeHtml(teamBNameRaw);
+
+    const message =
+      `✏️ <b>Ручная правка команд</b>\n\n` +
+      `<b>${teamAName} Команда A:</b>\n${teamAStr}\n\n` +
+      `<b>${teamBName} Команда B:</b>\n${teamBStr}\n\n` +
       `Выберите игрока для перемещения:`;
 
     // Создаем кнопки для каждого игрока
@@ -68,7 +76,7 @@ export const editTeamsCommand = async (ctx: BotContext): Promise<void> => {
     // Игроки команды A
     teamAPlayers.forEach((player, i) => {
       keyboard.push([{
-        text: `🔴→🔵 ${player.firstName}`,
+        text: `${teamANameRaw}→${teamBNameRaw} ${player.firstName}`,
         callback_data: `move_player_A_${player.id}`
       }]);
     });
@@ -76,7 +84,7 @@ export const editTeamsCommand = async (ctx: BotContext): Promise<void> => {
     // Игроки команды B
     teamBPlayers.forEach((player, i) => {
       keyboard.push([{
-        text: `🔵→🔴 ${player.firstName}`,
+        text: `${teamBNameRaw}→${teamANameRaw} ${player.firstName}`,
         callback_data: `move_player_B_${player.id}`
       }]);
     });
@@ -184,7 +192,8 @@ export const recalculateBalanceCommand = async (ctx: BotContext): Promise<void> 
       winProbability: teamService.calculateWinProbability(teamAWeight, teamBWeight),
     };
 
-    const message = teamService.formatTeamsMessage(balance);
+    const teamNames = { teamA: gameSession.teamA || '🔴', teamB: gameSession.teamB || '🔵' };
+    const message = teamService.formatTeamsMessage(balance, teamNames);
 
     await ctx.editMessageText(message + '\n\n✅ <i>Составы обновлены с учетом ваших изменений</i>', {
       parse_mode: 'HTML',
