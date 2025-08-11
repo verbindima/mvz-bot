@@ -13,13 +13,21 @@ export const teamsCommand = async (ctx: BotContext): Promise<void> => {
       return;
     }
 
-    const text = 'text' in ctx.message! ? ctx.message.text : '';
-    const query = text.replace('/teams', '').trim();
+    // Если вызвано из callback query, не обрабатываем дополнительные параметры
+    let query = '';
+    if (ctx.message && 'text' in ctx.message) {
+      query = ctx.message.text?.replace('/teams', '').trim() || '';
+    }
 
     const { main } = await ctx.gameService.getWeekPlayers();
 
     if (main.length < 16) {
-      await ctx.reply(`❌ Недостаточно игроков для формирования команд (${main.length}/16)`);
+      const errorMessage = `❌ Недостаточно игроков для формирования команд (${main.length}/16)`;
+      if (ctx.callbackQuery) {
+        await ctx.answerCbQuery(errorMessage, { show_alert: true });
+      } else {
+        await ctx.reply(errorMessage);
+      }
       return;
     }
 
@@ -78,14 +86,30 @@ export const teamsCommand = async (ctx: BotContext): Promise<void> => {
 
     const message = teamService.formatTeamsMessage(balance, teamNames);
 
-    await ctx.reply(message, {
-      reply_markup: {
-        inline_keyboard: KEYBOARDS.ADMIN_TEAMS,
-      },
-      parse_mode: 'HTML',
-    });
+    // Если это callback query, редактируем сообщение, иначе отправляем новое
+    if (ctx.callbackQuery) {
+      await ctx.editMessageText(message, {
+        reply_markup: {
+          inline_keyboard: KEYBOARDS.ADMIN_TEAMS,
+        },
+        parse_mode: 'HTML',
+      });
+      await ctx.answerCbQuery('♻️ Команды пересчитаны');
+    } else {
+      await ctx.reply(message, {
+        reply_markup: {
+          inline_keyboard: KEYBOARDS.ADMIN_TEAMS,
+        },
+        parse_mode: 'HTML',
+      });
+    }
   } catch (error) {
     console.error('Error in teams command:', error);
-    await ctx.reply('Произошла ошибка при генерации команд.');
+    const errorMessage = 'Произошла ошибка при генерации команд.';
+    if (ctx.callbackQuery) {
+      await ctx.answerCbQuery(errorMessage, { show_alert: true });
+    } else {
+      await ctx.reply(errorMessage);
+    }
   }
 };
