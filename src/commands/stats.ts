@@ -12,8 +12,7 @@ const generateStatsMessage = async (ctx: BotContext, telegramId: number) => {
     return {
       message: '❌ Статистика не найдена. Возможно, вы не зарегистрированы в системе.',
       keyboard: [
-        [{ text: '🔙 К информации', callback_data: 'refresh_info' }],
-        [{ text: '❎ Закрыть', callback_data: 'close_menu' }],
+        [{ text: '🔙 К информации', callback_data: 'refresh_info' }, { text: '❎ Закрыть', callback_data: 'close_menu' }],
       ],
     };
   }
@@ -61,8 +60,8 @@ const generateStatsMessage = async (ctx: BotContext, telegramId: number) => {
 
   const keyboard = [
     [{ text: '🏆 Топ игроков', callback_data: 'top_players' }],
-    [{ text: '🔙 К информации', callback_data: 'refresh_info' }, { text: '🔄 Обновить', callback_data: 'refresh_stats' }],
-    [{ text: '❎ Закрыть', callback_data: 'close_menu' }],
+    [{ text: '🔙 К информации', callback_data: 'refresh_info' }],
+    [{ text: '🔄 Обновить', callback_data: 'refresh_stats' }, { text: '❎ Закрыть', callback_data: 'close_menu' }],
   ];
 
   return { message, keyboard };
