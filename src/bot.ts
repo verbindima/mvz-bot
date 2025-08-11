@@ -77,52 +77,11 @@ bot.command('payment_status', paymentStatusCommand);
 
 
 bot.action('join', async (ctx) => {
-  const result = await ctx.gameService.joinGame(ctx.from.id);
-
-  let message = '';
-  if (result.success) {
-    if (result.position! <= 16) {
-      message = MESSAGES.JOINED_GAME.replace('{position}', result.position!.toString());
-    } else {
-      message = MESSAGES.JOINED_WAITLIST.replace('{position}', (result.position! - 16).toString());
-    }
-
-    // Отправляем полное сообщение
-    await ctx.editMessageText(message, {
-      parse_mode: 'HTML',
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '❌ Передумал', callback_data: 'leave' }],
-          [{ text: '📋 Посмотреть состав', callback_data: 'refresh_info' }],
-          [{ text: '❎ Закрыть', callback_data: 'close_menu' }],
-        ],
-      },
-    });
-    await ctx.answerCbQuery('Записаны на игру!');
-  } else {
-    message = result.error || 'Произошла ошибка';
-    await ctx.answerCbQuery(message, { show_alert: true });
-  }
+  await ctx.answerCbQuery('⚠️ Запись на игру временно недоступна через эту кнопку.\n\nИспользуйте команду /join или кнопки в других разделах.', { show_alert: true });
 });
 
 bot.action('leave', async (ctx) => {
-  const result = await ctx.gameService.leaveGame(ctx.from.id);
-
-  if (result.success) {
-    await ctx.editMessageText(MESSAGES.LEFT_GAME, {
-      parse_mode: 'HTML',
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '⚽ Я играю', callback_data: 'join' }],
-          [{ text: '📋 Посмотреть состав', callback_data: 'refresh_info' }],
-          [{ text: '❎ Закрыть', callback_data: 'close_menu' }],
-        ],
-      },
-    });
-    await ctx.answerCbQuery('Удалены из игры');
-  } else {
-    await ctx.answerCbQuery(result.error || 'Произошла ошибка', { show_alert: true });
-  }
+  await ctx.answerCbQuery('⚠️ Отмена записи временно недоступна через эту кнопку.\n\nИспользуйте команду /leave или кнопки в других разделах.', { show_alert: true });
 });
 
 bot.action('confirm_teams', async (ctx) => {

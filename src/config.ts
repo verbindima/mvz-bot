@@ -52,10 +52,7 @@ export const MESSAGES = {
 
 export const KEYBOARDS = {
   MAIN_MENU: [
-    [{ text: '⚽ Я играю', callback_data: 'join' }],
-    [{ text: '❌ Передумал', callback_data: 'leave' }],
-    [{ text: '📊 Статистика', callback_data: 'stats' }],
-    [{ text: '📋 Информация', callback_data: 'refresh_info' }],
+    [{ text: '📊 Статистика', callback_data: 'stats' }, { text: '📋 Информация', callback_data: 'refresh_info' }],
     [{ text: '❎ Закрыть', callback_data: 'close_menu' }],
   ],
   ADMIN_TEAMS: [

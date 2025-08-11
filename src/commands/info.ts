@@ -189,23 +189,12 @@ const generateInfoMessage = async (ctx: BotContext, playerId: number) => {
     }
   }
 
-  // Выбираем кнопки в зависимости от статуса игрока
-  let keyboard;
-  if (playerInMain || playerInWaiting) {
-    keyboard = [
-      [{ text: '❌ Передумал', callback_data: 'leave' }],
-      [{ text: '📊 Статистика', callback_data: 'stats' }, { text: '🔄 Обновить', callback_data: 'refresh_info' }],
-      [{ text: '💳 Оплата', callback_data: 'payment_info' }, { text: '⚖️ Баланс команд', callback_data: 'rating_info' }],
-      [{ text: '❎ Закрыть', callback_data: 'close_menu' }],
-    ];
-  } else {
-    keyboard = [
-      [{ text: '⚽ Я играю', callback_data: 'join' }],
-      [{ text: '📊 Статистика', callback_data: 'stats' }, { text: '🔄 Обновить', callback_data: 'refresh_info' }],
-      [{ text: '💳 Оплата', callback_data: 'payment_info' }, { text: '⚖️ Баланс команд', callback_data: 'rating_info' }],
-      [{ text: '❎ Закрыть', callback_data: 'close_menu' }],
-    ];
-  }
+  // Кнопки только для информации - убираем игровые действия
+  const keyboard = [
+    [{ text: '📊 Статистика', callback_data: 'stats' }, { text: '🔄 Обновить', callback_data: 'refresh_info' }],
+    [{ text: '💳 Оплата', callback_data: 'payment_info' }, { text: '⚖️ Баланс команд', callback_data: 'rating_info' }],
+    [{ text: '❎ Закрыть', callback_data: 'close_menu' }],
+  ];
 
   return { message, keyboard };
 };
