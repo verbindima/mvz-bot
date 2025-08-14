@@ -17,6 +17,17 @@ export const ratingSettingsCommand = async (ctx: BotContext): Promise<void> => {
     message += `• Алгоритм: Snake Draft + стохастическая оптимизация\n`;
     message += `• Максимум итераций: 500\n\n`;
 
+    message += `<b>⏰ Инфляция неактивности:</b>\n`;
+    message += `• Включено: <b>${CONFIG.RATING_IDLE_ENABLED ? 'Да' : 'Нет'}</b>\n`;
+    message += `• Скорость роста σ: <b>${CONFIG.RATING_IDLE_LAMBDA}/неделю</b>\n`;
+    message += `• Период: <b>${CONFIG.RATING_IDLE_PERIOD_DAYS} дней</b>\n`;
+    message += `• Максимум σ: <b>${CONFIG.RATING_SIGMA0}</b>\n\n`;
+
+    message += `<b>⭐ MVP система:</b>\n`;
+    message += `• Включено: <b>${CONFIG.RATING_MVP_ENABLED ? 'Да' : 'Нет'}</b>\n`;
+    message += `• Бонус к μ: <b>+${CONFIG.RATING_MVP_MU_BONUS}</b>\n`;
+    message += `• Максимум MVP за матч: <b>2 (по 1 на команду)</b>\n\n`;
+
     message += `<b>👥 Формат игры:</b>\n`;
     message += `• Игроков в команде: 8\n`;
     message += `• Всего игроков: 16\n`;
@@ -24,7 +35,8 @@ export const ratingSettingsCommand = async (ctx: BotContext): Promise<void> => {
 
     if (CONFIG.ADMINS.includes(ctx.from!.id)) {
       message += `<b>🔧 Админские команды:</b>\n`;
-      message += `• <code>/result A 5-3 B</code> - внести результат матча`;
+      message += `• <code>/result A 5-3 B</code> - внести результат матча\n`;
+      message += `• <code>/mvp @username1 [@username2]</code> - назначить MVP`;
     } else {
       message += `<b>💡 Информация:</b>\n`;
       message += `Схема рейтинга фиксирована и не может быть изменена.`;
