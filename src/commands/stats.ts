@@ -116,11 +116,13 @@ export const topPlayersCommand = async (ctx: BotContext): Promise<void> => {
     const topPlayers = await statisticsService.getTopPlayers(10);
 
     if (topPlayers.length === 0) {
-      await ctx.editMessageText(
-        '📊 <b>Топ игроков</b>\n\n' +
+      const emptyMessage = '📊 <b>Топ игроков</b>\n\n' +
         '❌ Пока нет игроков с достаточным количеством игр для составления рейтинга.\n\n' +
-        'Необходимо минимум 3 сыгранные игры.',
-        {
+        'Необходимо минимум 3 сыгранные игры.\n\n' +
+        `🕐 <i>Обновлено: ${new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</i>`;
+      
+      try {
+        await ctx.editMessageText(emptyMessage, {
           parse_mode: 'HTML',
           reply_markup: {
             inline_keyboard: [
@@ -128,8 +130,13 @@ export const topPlayersCommand = async (ctx: BotContext): Promise<void> => {
               [{ text: '❎ Закрыть', callback_data: 'close_menu' }],
             ],
           },
+        });
+      } catch (editError: any) {
+        // Игнорируем ошибку "message is not modified"
+        if (!editError.description?.includes('message is not modified')) {
+          throw editError;
         }
-      );
+      }
       await ctx.answerCbQuery();
       return;
     }
@@ -146,17 +153,25 @@ export const topPlayersCommand = async (ctx: BotContext): Promise<void> => {
       message += `📈 ${playerStat.winRate.toFixed(1)}%\n\n`;
     });
 
-    message += `\n💡 <i>Рейтинг учитывает игроков с минимум 3 играми</i>`;
+    message += `\n💡 <i>Рейтинг учитывает игроков с минимум 3 играми</i>\n`;
+    message += `🕐 <i>Обновлено: ${new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</i>`;
 
-    await ctx.editMessageText(message, {
-      parse_mode: 'HTML',
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '🔙 Назад к статистике', callback_data: 'refresh_stats' }],
-          [{ text: '❎ Закрыть', callback_data: 'close_menu' }],
-        ],
-      },
-    });
+    try {
+      await ctx.editMessageText(message, {
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔙 Назад к статистике', callback_data: 'refresh_stats' }],
+            [{ text: '❎ Закрыть', callback_data: 'close_menu' }],
+          ],
+        },
+      });
+    } catch (editError: any) {
+      // Игнорируем ошибку "message is not modified"
+      if (!editError.description?.includes('message is not modified')) {
+        throw editError;
+      }
+    }
     await ctx.answerCbQuery();
 
   } catch (error) {

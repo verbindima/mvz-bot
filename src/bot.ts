@@ -180,7 +180,6 @@ bot.action('refresh_stats', async (ctx) => {
 
 bot.action('top_players', async (ctx) => {
   await topPlayersCommand(ctx);
-  await ctx.answerCbQuery();
 });
 
 // Обрабатываем сообщения с галочкой как подтверждение оплаты
