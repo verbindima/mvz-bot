@@ -87,12 +87,17 @@ export const resultCommand = async (ctx: BotContext): Promise<void> => {
     if (score1 > score2) {
       const winners = team1 === 'A' ? teamAPlayers : teamBPlayers;
       const losers = team1 === 'A' ? teamBPlayers : teamAPlayers;
-      await ratingService.updateTrueSkill(winners, losers);
+      await ratingService.updateTrueSkill(winners, losers, {
+        matchPlayedAt: new Date()
+      });
     } else if (score2 > score1) {
       const winners = team2 === 'A' ? teamAPlayers : teamBPlayers;
       const losers = team2 === 'A' ? teamBPlayers : teamAPlayers;
-      await ratingService.updateTrueSkill(winners, losers);
+      await ratingService.updateTrueSkill(winners, losers, {
+        matchPlayedAt: new Date()
+      });
     }
+    // При ничьей TrueSkill рейтинги не обновляются
 
     await ctx.reply(`✅ Результат матча обработан: ${team1} ${score1}-${score2} ${team2}\n📊 Статистика игроков обновлена`);
   } catch (error) {

@@ -35,7 +35,6 @@ describe('GameService', () => {
     telegramId: BigInt(12345),
     username: 'testuser',
     firstName: 'Test',
-    skillCaptain: 5.0,
     tsMu: 25.0,
     tsSigma: 8.333,
     isAdmin: false,

@@ -11,6 +11,15 @@ interface Config {
   PORT: number;
   NODE_ENV: string;
   GEMINI_API_KEY: string;
+  // TrueSkill improvements
+  RATING_IDLE_ENABLED: boolean;
+  RATING_IDLE_LAMBDA: number;
+  RATING_IDLE_PERIOD_DAYS: number;
+  RATING_SIGMA0: number;
+  RATING_SIGMA_FLOOR: number;
+  RATING_MVP_ENABLED: boolean;
+  RATING_MVP_MU_BONUS: number;
+  RATING_MVP_SIGMA_MULT: number;
 }
 
 class ConfigManager {
@@ -26,6 +35,15 @@ class ConfigManager {
       PORT: parseInt(process.env.PORT || '3000'),
       NODE_ENV: process.env.NODE_ENV || 'development',
       GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',
+      // TrueSkill improvements
+      RATING_IDLE_ENABLED: process.env.RATING_IDLE_ENABLED !== 'false',
+      RATING_IDLE_LAMBDA: parseFloat(process.env.RATING_IDLE_LAMBDA || '0.35'),
+      RATING_IDLE_PERIOD_DAYS: parseInt(process.env.RATING_IDLE_PERIOD_DAYS || '7'),
+      RATING_SIGMA0: parseFloat(process.env.RATING_SIGMA0 || '8.333'),
+      RATING_SIGMA_FLOOR: parseFloat(process.env.RATING_SIGMA_FLOOR || '1.0'),
+      RATING_MVP_ENABLED: process.env.RATING_MVP_ENABLED !== 'false',
+      RATING_MVP_MU_BONUS: parseFloat(process.env.RATING_MVP_MU_BONUS || '0.6'),
+      RATING_MVP_SIGMA_MULT: parseFloat(process.env.RATING_MVP_SIGMA_MULT || '1.0'),
     };
   }
 

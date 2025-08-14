@@ -8,20 +8,24 @@ datasource db {
 }
 
 model Player {
-  id           Int         @id @default(autoincrement())
-  telegramId   BigInt      @unique
-  username     String?
-  firstName    String
-  skillCaptain Float       @default(0)
-  tsMu         Float       @default(25)
-  tsSigma      Float       @default(8.333)
-  isAdmin      Boolean     @default(false)
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  id            Int         @id @default(autoincrement())
+  telegramId    BigInt      @unique
+  username      String?
+  firstName     String
+  tsMu          Float       @default(25)
+  tsSigma       Float       @default(8.333)
+  isAdmin       Boolean     @default(false)
+  lastPlayedAt  DateTime?   @db.Timestamp(6)
+  firstPlayedAt DateTime?   @db.Timestamp(6)
+  gamesPlayed   Int         @default(0)
+  mvpCount      Int         @default(0)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 
-  weekEntries  WeekEntry[]
-  ratings      Rating[]
-  teamPlayers  TeamPlayer[]
+  weekEntries   WeekEntry[]
+  ratings       Rating[]
+  teamPlayers   TeamPlayer[]
+  ratingEvents  RatingEvent[]
 
   @@map("players")
 }
@@ -47,7 +51,6 @@ model Rating {
   matchId   Int
   playerId  Int
   delta     Int
-  scheme    String   @default("captain")
   createdAt DateTime @default(now())
 
   player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
@@ -98,12 +101,36 @@ model MatchResult {
   gameSessionId Int         @unique
   teamAScore    Int
   teamBScore    Int
-  winnerTeam    String      // "A" or "B"
+  winnerTeam    String      // "A", "B", or "DRAW"
   createdAt     DateTime    @default(now())
 
   // Relations
   gameSession   GameSession @relation(fields: [gameSessionId], references: [id], onDelete: Cascade)
 
   @@map("match_results")
+}
+
+enum RatingEventReason {
+  match
+  idle
+  mvp
+}
+
+model RatingEvent {
+  id          Int                @id @default(autoincrement())
+  playerId    Int
+  matchId     Int?
+  muBefore    Float
+  muAfter     Float
+  sigmaBefore Float
+  sigmaAfter  Float
+  reason      RatingEventReason
+  meta        Json?              // Additional metadata (weeks inactive, MVP bonus amount, etc.)
+  createdAt   DateTime           @default(now())
+
+  // Relations
+  player      Player             @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@map("rating_events")
 }
 

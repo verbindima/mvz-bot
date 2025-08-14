@@ -15,7 +15,6 @@ describe('TeamService', () => {
       telegramId: BigInt(1000 + i),
       username: `user${i + 1}`,
       firstName: `Player${i + 1}`,
-      skillCaptain: Math.random() * 10,
       tsMu: 20 + Math.random() * 10,
       tsSigma: 8.333,
       isAdmin: false,
@@ -114,7 +113,6 @@ describe('TeamService', () => {
   it('should handle players with equal skills', () => {
     const equalSkillPlayers = mockPlayers.map(p => ({
       ...p,
-      skillCaptain: 5.0,
       tsMu: 25.0,
     }));
     

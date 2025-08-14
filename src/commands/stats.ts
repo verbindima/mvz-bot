@@ -32,8 +32,16 @@ const generateStatsMessage = async (ctx: BotContext, telegramId: number) => {
     message += `🤝 <b>Ничьи:</b> ${stats.draws}\n`;
   }
 
+  if (stats.mvpCount > 0) {
+    message += `⭐ <b>MVP:</b> ${stats.mvpCount}\n`;
+  }
+
   if (stats.gamesPlayed > 0) {
-    message += `📈 <b>Процент побед:</b> ${stats.winRate.toFixed(1)}%\n\n`;
+    message += `📈 <b>Процент побед:</b> ${stats.winRate.toFixed(1)}%\n`;
+    if (stats.mvpCount > 0) {
+      message += `🌟 <b>Процент MVP:</b> ${stats.mvpRate.toFixed(1)}%\n`;
+    }
+    message += `\n`;
   } else {
     message += `\n`;
   }

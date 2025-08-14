@@ -20,7 +20,6 @@ describe('Team Balancing Algorithm', () => {
         telegramId: BigInt(i + 1),
         username: `player${i + 1}`,
         firstName: `Player ${i + 1}`,
-        skillCaptain: Math.floor(Math.random() * 10), // 0-10
         tsMu: 20 + Math.random() * 10, // 20-30 (realistic TrueSkill range)
         tsSigma: 6 + Math.random() * 4, // 6-10
         isAdmin: false,
@@ -59,7 +58,6 @@ describe('Team Balancing Algorithm', () => {
         telegramId: BigInt(i + 1),
         username: `highskill${i + 1}`,
         firstName: `High Skill ${i + 1}`,
-        skillCaptain: 10,
         tsMu: 30,
         tsSigma: 6,
         isAdmin: false,
@@ -74,7 +72,6 @@ describe('Team Balancing Algorithm', () => {
         telegramId: BigInt(i + 9),
         username: `lowskill${i + 1}`,
         firstName: `Low Skill ${i + 1}`,
-        skillCaptain: 0,
         tsMu: 15,
         tsSigma: 8,
         isAdmin: false,

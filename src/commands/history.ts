@@ -168,11 +168,15 @@ export const addHistoryCommand = async (ctx: BotContext): Promise<void> => {
         if (score1 > score2) {
           const winners = team1 === 'A' ? teamAPlayers : teamBPlayers;
           const losers = team1 === 'A' ? teamBPlayers : teamAPlayers;
-          await ratingService.updateTrueSkill(winners, losers);
+          await ratingService.updateTrueSkill(winners, losers, {
+            matchPlayedAt: new Date()
+          });
         } else if (score2 > score1) {
           const winners = team2 === 'A' ? teamAPlayers : teamBPlayers;
           const losers = team2 === 'A' ? teamBPlayers : teamAPlayers;
-          await ratingService.updateTrueSkill(winners, losers);
+          await ratingService.updateTrueSkill(winners, losers, {
+            matchPlayedAt: new Date()
+          });
         }
 
         results.push(`✅ Неделя ${week}/${year}: ${team1} ${score1}-${score2} ${team2} (статистика обновлена)`);

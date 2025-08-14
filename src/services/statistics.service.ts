@@ -10,6 +10,8 @@ export interface PlayerStats {
   losses: number;
   draws: number;
   winRate: number;
+  mvpCount: number;
+  mvpRate: number;
   currentTSRating: string;
   ratingHistory: Array<{
     date: Date;
@@ -99,6 +101,8 @@ export class StatisticsService {
 
       const gamesPlayed = completedGames.length;
       const winRate = gamesPlayed > 0 ? (wins / gamesPlayed) * 100 : 0;
+      const mvpCount = player.mvpCount || 0;
+      const mvpRate = gamesPlayed > 0 ? (mvpCount / gamesPlayed) * 100 : 0;
 
       return {
         player,
@@ -107,6 +111,8 @@ export class StatisticsService {
         losses,
         draws,
         winRate,
+        mvpCount,
+        mvpRate,
         currentTSRating: `${player.tsMu.toFixed(1)}±${player.tsSigma.toFixed(1)}`,
         ratingHistory: ratingHistory.slice(0, 10), // Последние 10 игр
       };
