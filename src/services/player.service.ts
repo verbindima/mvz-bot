@@ -72,7 +72,6 @@ export class PlayerService {
           matchId: Math.floor(Date.now() / 1000), // Используем timestamp в секундах
           playerId: player.id,
           delta,
-          scheme,
         },
       });
 

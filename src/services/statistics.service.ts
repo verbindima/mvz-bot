@@ -62,6 +62,8 @@ export class StatisticsService {
           losses: 0,
           draws: 0,
           winRate: 0,
+          mvpCount: 0,
+          mvpRate: 0,
           currentTSRating: `${player.tsMu.toFixed(1)}±${player.tsSigma.toFixed(1)}`,
           ratingHistory: [],
         };
