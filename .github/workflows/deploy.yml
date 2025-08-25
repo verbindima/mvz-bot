@@ -140,8 +140,36 @@ jobs:
               echo "Yarn version: $(yarn --version)"
             fi
             
-            # Install dependencies (Yarn 4 way, production only)
-            NODE_ENV=production yarn install
+            # Check system resources
+            echo "Available memory:"
+            free -h || echo "free command not available"
+            echo "Available disk space:"
+            df -h . || echo "df command not available"
+            
+            # Install dependencies with optimizations
+            echo "Installing dependencies..."
+            export NODE_OPTIONS="--max-old-space-size=1024"
+            export YARN_ENABLE_GLOBAL_CACHE=false
+            
+            # Use timeout to prevent hanging
+            timeout 900 NODE_ENV=production yarn install --check-cache || {
+              echo "❌ Yarn install failed, trying fallback options..."
+              
+              # Try clearing cache first
+              yarn cache clean --all
+              timeout 600 NODE_ENV=production yarn install --no-immutable || {
+                echo "❌ Yarn still failing, trying with npm as fallback..."
+                
+                # Convert yarn.lock to package-lock.json if needed
+                if command -v npm &> /dev/null; then
+                  rm -f package-lock.json
+                  npm install --production --no-audit --no-fund
+                else
+                  echo "❌ Both Yarn and npm failed"
+                  exit 1
+                fi
+              }
+            }
             
             # Setup environment if not exists
             if [ ! -f .env ]; then
