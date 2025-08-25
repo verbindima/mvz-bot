@@ -29,7 +29,7 @@ import { paymentInfoCommand } from './commands/payment_info';
 import { confirmPlayerPaymentCommand, paymentStatusCommand } from './commands/admin_payment';
 import { editTeamsCommand, movePlayerCommand, recalculateBalanceCommand } from './commands/edit_teams';
 import { migratePairsCommand } from './commands/migrate_pairs';
-import { triInitCommand, triConfirmCommand, triCancelCommand, triResultsCommand, triBulkAddCommand } from './commands/tri';
+import { triInitCommand, triConfirmCommand, triCancelCommand, triResultsCommand, triBulkAddCommand, triEditCommand, handleTriMove, executeTriPlayerMove, handleTriAutoBalance } from './commands/tri';
 
 export interface BotContext extends Context {
   playerService: PlayerService;
@@ -83,6 +83,7 @@ bot.command('tri_confirm', triConfirmCommand);
 bot.command('tri_cancel', triCancelCommand);
 bot.command('tri_results', triResultsCommand);
 bot.command('tri_bulk_add', triBulkAddCommand);
+bot.command('tri_edit', triEditCommand);
 
 
 bot.action('join', async (ctx) => {
@@ -245,6 +246,74 @@ process.on('SIGTERM', gracefulShutdown);
 const main = async () => {
   try {
     await connectDatabase();
+
+    // TRI Edit обработчики кнопок
+    bot.action(/^tri_move_([ABC])_([ABC])$/, async (ctx) => {
+      if (!CONFIG.ADMINS.includes(ctx.from.id)) {
+        await ctx.answerCbQuery('❌ Доступ запрещен');
+        return;
+      }
+      const match = ctx.match;
+      const fromTeam = match[1];
+      const toTeam = match[2];
+      await handleTriMove(ctx, fromTeam, toTeam);
+    });
+
+    bot.action(/^tri_move_player_([ABC])_([ABC])_(\d+)$/, async (ctx) => {
+      if (!CONFIG.ADMINS.includes(ctx.from.id)) {
+        await ctx.answerCbQuery('❌ Доступ запрещен');
+        return;
+      }
+      const match = ctx.match;
+      const fromTeam = match[1];
+      const toTeam = match[2];
+      const playerId = parseInt(match[3]);
+      await executeTriPlayerMove(ctx, fromTeam, toTeam, playerId);
+    });
+
+    bot.action('tri_auto_balance', async (ctx) => {
+      if (!CONFIG.ADMINS.includes(ctx.from.id)) {
+        await ctx.answerCbQuery('❌ Доступ запрещен');
+        return;
+      }
+      await handleTriAutoBalance(ctx);
+    });
+
+    bot.action('tri_regenerate', async (ctx) => {
+      if (!CONFIG.ADMINS.includes(ctx.from.id)) {
+        await ctx.answerCbQuery('❌ Доступ запрещен');
+        return;
+      }
+      await handleTriAutoBalance(ctx);
+    });
+
+    bot.action('tri_accept_edit', async (ctx) => {
+      if (!CONFIG.ADMINS.includes(ctx.from.id)) {
+        await ctx.answerCbQuery('❌ Доступ запрещен');
+        return;
+      }
+      await ctx.answerCbQuery('✅ Составы приняты');
+      await ctx.editMessageText('✅ <b>TRI составы сохранены!</b>\n\nИспользуйте /tri_confirm для окончательного подтверждения.', {
+        parse_mode: 'HTML'
+      });
+    });
+
+    bot.action('tri_cancel_edit', async (ctx) => {
+      if (!CONFIG.ADMINS.includes(ctx.from.id)) {
+        await ctx.answerCbQuery('❌ Доступ запрещен');
+        return;
+      }
+      await ctx.answerCbQuery('❌ Редактирование отменено');
+      await ctx.editMessageText('❌ Редактирование TRI составов отменено.');
+    });
+
+    bot.action('tri_edit_back', async (ctx) => {
+      if (!CONFIG.ADMINS.includes(ctx.from.id)) {
+        await ctx.answerCbQuery('❌ Доступ запрещен');
+        return;
+      }
+      await triEditCommand(ctx);
+    });
 
     container.registerInstance('bot', bot);
 
