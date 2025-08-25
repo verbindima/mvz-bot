@@ -21,11 +21,26 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'yarn'
-          corepack: true
+
+      - name: Enable Corepack
+        run: |
+          corepack enable
+          echo "Yarn version: $(yarn --version)"
+
+      - name: Cache Yarn dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            .yarn/cache
+            .yarn/unplugged
+            .yarn/build-state.yml
+            .yarn/install-state.gz
+          key: ${{ runner.os }}-yarn-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
 
       - name: Install dependencies
-        run: yarn install
+        run: yarn install --immutable
 
       - name: Generate Prisma client
         run: npx prisma generate
@@ -36,12 +51,10 @@ jobs:
       - name: Create deployment archive
         run: |
           tar -czf deployment.tar.gz \
-            --exclude='.yarn/install-state.gz' \
             dist/ \
             package.json \
             yarn.lock \
             .yarnrc.yml \
-            .yarn/ \
             prisma/ \
             .env.example \
             ecosystem.config.js
@@ -78,7 +91,7 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT || '22' }}
-          source: "dist,package.json,prisma,.env.example,ecosystem.config.js,yarn.lock,.yarnrc.yml,.yarn"
+          source: "dist,package.json,prisma,.env.example,ecosystem.config.js,yarn.lock,.yarnrc.yml"
           target: "/tmp/mvz-deploy"
 
       - name: Deploy to server
