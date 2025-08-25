@@ -404,6 +404,7 @@ export const triBulkAddCommand = async (ctx: BotContext): Promise<void> => {
         }
 
         // Если игрок не найден, пытаемся автоматически зарегистрировать
+        let isAutoRegistered = false;
         if (!player) {
           // Автоматическая регистрация только по username и telegram ID
           if (playerInput.startsWith('@')) {
@@ -411,7 +412,7 @@ export const triBulkAddCommand = async (ctx: BotContext): Promise<void> => {
             try {
               player = await prisma.player.create({
                 data: {
-                  telegramId: BigInt(0), // Временный ID, должен быть обновлен когда игрок напишет /start
+                  telegramId: BigInt(Date.now()), // Временный уникальный ID
                   username: username,
                   firstName: username, // Используем username как имя по умолчанию
                   tsMu: 25,
@@ -420,6 +421,7 @@ export const triBulkAddCommand = async (ctx: BotContext): Promise<void> => {
                 }
               });
               autoRegistered.push(`@${username} (новый игрок)`);
+              isAutoRegistered = true;
               logger.info(`Auto-registered player with username: ${username}`);
             } catch (error) {
               logger.error(`Failed to auto-register player with username ${username}:`, error);
@@ -441,6 +443,7 @@ export const triBulkAddCommand = async (ctx: BotContext): Promise<void> => {
                 }
               });
               autoRegistered.push(`ID${playerInput} (новый игрок)`);
+              isAutoRegistered = true;
               logger.info(`Auto-registered player with telegram ID: ${telegramId}`);
             } catch (error) {
               logger.error(`Failed to auto-register player with telegram ID ${telegramId}:`, error);
@@ -472,7 +475,12 @@ export const triBulkAddCommand = async (ctx: BotContext): Promise<void> => {
           }
         });
 
-        addedPlayers.push(`${player.firstName} (@${player.username || 'no_username'})`);
+        // Добавляем в соответствующий список в зависимости от того, как был найден игрок
+        if (isAutoRegistered) {
+          // Уже добавлен в autoRegistered выше
+        } else {
+          addedPlayers.push(`${player.firstName} (@${player.username || 'no_username'})`);
+        }
         currentPlayerIds.add(player.id);
 
       } catch (error) {

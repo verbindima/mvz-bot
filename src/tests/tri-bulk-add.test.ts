@@ -376,7 +376,7 @@ describe('triBulkAddCommand', () => {
 
     expect(mockPrisma.player.create).toHaveBeenCalledWith({
       data: {
-        telegramId: BigInt(0),
+        telegramId: expect.any(BigInt),
         username: 'new_player',
         firstName: 'new_player',
         tsMu: 25,
