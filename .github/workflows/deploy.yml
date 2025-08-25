@@ -152,14 +152,28 @@ jobs:
             export YARN_ENABLE_GLOBAL_CACHE=false
             export YARN_CACHE_FOLDER="/tmp/yarn-cache"
             
-            # Check if we have enough memory (need at least 400MB free)
+            # Check if we have enough memory (need at least 500MB free)
             AVAILABLE_MEM=$(free -m | awk 'NR==2{printf "%.0f", $7}')
             echo "Available memory: ${AVAILABLE_MEM}MB"
-            if [ "$AVAILABLE_MEM" -lt 400 ]; then
-              echo "⚠️ Low memory detected, using npm instead of Yarn"
+            if [ "$AVAILABLE_MEM" -lt 500 ]; then
+              echo "⚠️ Low memory detected (${AVAILABLE_MEM}MB < 500MB), using npm instead of Yarn"
               if command -v npm &> /dev/null; then
+                echo "Switching to npm for low-memory installation..."
+                NODE_ENV=production npm ci --production --no-audit --no-fund || \
                 NODE_ENV=production npm install --production --no-audit --no-fund
-                exit $?
+                
+                # Use npm-installed prisma
+                echo "Running Prisma with npm..."
+                npx prisma generate
+                npx prisma migrate deploy
+                
+                echo "✅ npm installation completed"
+                # Skip to application start
+                pm2 start ecosystem.config.js --env production
+                pm2 save
+                rm -rf /tmp/mvz-deploy
+                echo "✅ Deployment completed successfully with npm!"
+                exit 0
               fi
             fi
             
@@ -189,9 +203,24 @@ jobs:
               echo "⚠️  Please configure .env file with production values"
             fi
             
-            # Run database migrations
-            npx prisma generate
-            npx prisma migrate deploy
+            # Run database migrations with memory optimization
+            echo "Generating Prisma client..."
+            export NODE_OPTIONS="--max-old-space-size=512"
+            
+            # Check if prisma is already installed
+            if [ -f "node_modules/.bin/prisma" ]; then
+              echo "Using local Prisma installation"
+              ./node_modules/.bin/prisma generate
+              ./node_modules/.bin/prisma migrate deploy
+            else
+              echo "Using npx with memory limits"
+              timeout 300 npx --yes prisma@5.15.0 generate || {
+                echo "❌ Prisma generate failed, trying alternative approach"
+                NODE_ENV=production npm install prisma@5.15.0 --no-save
+                npx prisma generate
+              }
+              timeout 300 npx prisma migrate deploy
+            fi
             
             # Start application
             pm2 start ecosystem.config.js --env production
