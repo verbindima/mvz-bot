@@ -15,7 +15,8 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate deploy",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "migrate-matches": "tsx src/scripts/migrate-existing-matches.ts"
   },
   "keywords": [
     "telegram",

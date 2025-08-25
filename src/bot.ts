@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { Telegraf, Context } from 'telegraf';
 import { container } from 'tsyringe';
-import { CONFIG, MESSAGES, KEYBOARDS } from './config';
+import { CONFIG, MESSAGES } from './config';
 import { logger } from './utils/logger';
 import { connectDatabase, disconnectDatabase } from './utils/database';
 import { PlayerService } from './services/player.service';
@@ -28,6 +28,7 @@ import { initWeekCommand } from './commands/init_week';
 import { paymentInfoCommand } from './commands/payment_info';
 import { confirmPlayerPaymentCommand, paymentStatusCommand } from './commands/admin_payment';
 import { editTeamsCommand, movePlayerCommand, recalculateBalanceCommand } from './commands/edit_teams';
+import { migratePairsCommand } from './commands/migrate_pairs';
 
 export interface BotContext extends Context {
   playerService: PlayerService;
@@ -75,6 +76,7 @@ bot.command('init_week', initWeekCommand);
 bot.command('payment_info', paymentInfoCommand);
 bot.command('confirm_player_payment', confirmPlayerPaymentCommand);
 bot.command('payment_status', paymentStatusCommand);
+bot.command('migrate_pairs', migratePairsCommand);
 
 
 bot.action('join', async (ctx) => {
@@ -113,10 +115,10 @@ bot.action('toggle_synergy', async (ctx) => {
 
   // Toggle the synergy setting
   (CONFIG as any).SYNERGY_ENABLED = !CONFIG.SYNERGY_ENABLED;
-  
+
   const status = CONFIG.SYNERGY_ENABLED ? 'включена' : 'отключена';
   await ctx.answerCbQuery(`🧪 Химия команд ${status}`, { show_alert: true });
-  
+
   // Regenerate teams with new setting
   await teamsCommand(ctx);
 });
