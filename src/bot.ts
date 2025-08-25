@@ -26,7 +26,6 @@ import { trueskillDetailsCommand } from './commands/trueskill_details';
 import { ratingSettingsCommand } from './commands/rating_settings';
 import { initWeekCommand } from './commands/init_week';
 import { paymentInfoCommand } from './commands/payment_info';
-import { confirmPaymentCommand } from './commands/confirm_payment';
 import { confirmPlayerPaymentCommand, paymentStatusCommand } from './commands/admin_payment';
 import { editTeamsCommand, movePlayerCommand, recalculateBalanceCommand } from './commands/edit_teams';
 
@@ -182,8 +181,6 @@ bot.action('top_players', async (ctx) => {
   await topPlayersCommand(ctx);
 });
 
-// Обрабатываем сообщения с галочкой как подтверждение оплаты
-bot.hears('✅', confirmPaymentCommand);
 
 // Универсальный обработчик закрытия меню
 bot.action('close_menu', async (ctx) => {
