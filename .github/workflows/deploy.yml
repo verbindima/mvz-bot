@@ -22,6 +22,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'yarn'
+          corepack: true
 
       - name: Install dependencies
         run: yarn install
@@ -35,9 +36,12 @@ jobs:
       - name: Create deployment archive
         run: |
           tar -czf deployment.tar.gz \
+            --exclude='.yarn/install-state.gz' \
             dist/ \
             package.json \
             yarn.lock \
+            .yarnrc.yml \
+            .yarn/ \
             prisma/ \
             .env.example \
             ecosystem.config.js
@@ -74,7 +78,7 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT || '22' }}
-          source: "dist,package.json,prisma,.env.example,ecosystem.config.js,yarn.lock"
+          source: "dist,package.json,prisma,.env.example,ecosystem.config.js,yarn.lock,.yarnrc.yml,.yarn"
           target: "/tmp/mvz-deploy"
 
       - name: Deploy to server
@@ -111,6 +115,17 @@ jobs:
             mkdir -p $APP_DIR
             cp -r /tmp/mvz-deploy/* $APP_DIR/
             cd $APP_DIR
+            
+            # Check Node.js version and enable Corepack
+            echo "Node.js version: $(node --version)"
+            if command -v corepack &> /dev/null; then
+              corepack enable
+              echo "✅ Corepack enabled for Yarn 4.x support"
+              echo "Yarn version: $(yarn --version)"
+            else
+              echo "⚠️  Corepack not available, using system Yarn"
+              echo "Yarn version: $(yarn --version)"
+            fi
             
             # Install dependencies
             yarn install --production
