@@ -305,6 +305,239 @@ function parseTriResults(text: string): { results: TriMatchResult[]; errors: str
   return { results, errors };
 }
 
+export const triBulkAddCommand = async (ctx: BotContext): Promise<void> => {
+  try {
+    if (!await checkAdminPrivateOnly(ctx)) {
+      return;
+    }
+
+    if (!CONFIG.TRI_MODE_ENABLED) {
+      await ctx.reply('❌ Режим трёх команд отключен в конфигурации.');
+      return;
+    }
+
+    // Получаем список игроков из сообщения
+    let playersText = '';
+    if (ctx.message && 'text' in ctx.message) {
+      playersText = ctx.message.text?.replace('/tri_bulk_add', '').trim() || '';
+    }
+
+    if (!playersText) {
+      await ctx.reply(
+        '❌ Не указан список игроков.\n\n' +
+        '📝 <b>Формат команды:</b>\n' +
+        '<code>/tri_bulk_add\n' +
+        'Иван Петров\n' +
+        'Александр Смирнов\n' +
+        '@username\n' +
+        '...(до 24 строк)</code>\n\n' +
+        '💡 <b>Поддерживаемые форматы:</b>\n' +
+        '• Полное имя (ищется по firstName)\n' +
+        '• @username (автоматическая регистрация если не найден)\n' +
+        '• ID Telegram (автоматическая регистрация если не найден)\n\n' +
+        '🆕 <b>Автоматическая регистрация:</b>\n' +
+        'Новые игроки (по @username и telegram ID) будут автоматически зарегистрированы с базовым рейтингом',
+        { parse_mode: 'HTML' }
+      );
+      return;
+    }
+
+    const lines = playersText.trim().split('\n').filter(line => line.trim());
+    
+    if (lines.length === 0) {
+      await ctx.reply('❌ Список игроков пуст.');
+      return;
+    }
+
+    if (lines.length > 24) {
+      await ctx.reply(`❌ Слишком много игроков (${lines.length}/24). Для TRI режима максимум 24 игрока.`);
+      return;
+    }
+
+    await ctx.reply(`🔄 Ищу и добавляю ${lines.length} игрок(ов)...`);
+
+    const { week, year } = getCurrentWeek();
+    const addedPlayers: string[] = [];
+    const notFoundPlayers: string[] = [];
+    const alreadyJoined: string[] = [];
+    const autoRegistered: string[] = [];
+
+    // Получаем текущих записанных игроков
+    const currentEntries = await prisma.weekEntry.findMany({
+      where: { week, year },
+      include: { player: true }
+    });
+
+    const currentPlayerIds = new Set(currentEntries.map(e => e.player.id));
+
+    for (let i = 0; i < lines.length; i++) {
+      const playerInput = lines[i].trim();
+      if (!playerInput) continue;
+
+      try {
+        let player = null;
+
+        // Поиск по username (@username)
+        if (playerInput.startsWith('@')) {
+          const username = playerInput.slice(1);
+          player = await prisma.player.findFirst({
+            where: { username }
+          });
+        }
+        // Поиск по Telegram ID (только числа)
+        else if (/^\d+$/.test(playerInput)) {
+          const telegramId = BigInt(playerInput);
+          player = await prisma.player.findUnique({
+            where: { telegramId }
+          });
+        }
+        // Поиск по имени (firstName содержит)
+        else {
+          player = await prisma.player.findFirst({
+            where: {
+              firstName: {
+                contains: playerInput,
+                mode: 'insensitive'
+              }
+            }
+          });
+        }
+
+        // Если игрок не найден, пытаемся автоматически зарегистрировать
+        if (!player) {
+          // Автоматическая регистрация только по username и telegram ID
+          if (playerInput.startsWith('@')) {
+            const username = playerInput.slice(1);
+            try {
+              player = await prisma.player.create({
+                data: {
+                  telegramId: BigInt(0), // Временный ID, должен быть обновлен когда игрок напишет /start
+                  username: username,
+                  firstName: username, // Используем username как имя по умолчанию
+                  tsMu: 25,
+                  tsSigma: 8.333,
+                  isAdmin: false
+                }
+              });
+              autoRegistered.push(`@${username} (новый игрок)`);
+              logger.info(`Auto-registered player with username: ${username}`);
+            } catch (error) {
+              logger.error(`Failed to auto-register player with username ${username}:`, error);
+              notFoundPlayers.push(playerInput);
+              continue;
+            }
+          }
+          else if (/^\d+$/.test(playerInput)) {
+            const telegramId = BigInt(playerInput);
+            try {
+              player = await prisma.player.create({
+                data: {
+                  telegramId: telegramId,
+                  username: null,
+                  firstName: `ID${playerInput}`, // Используем ID как имя по умолчанию
+                  tsMu: 25,
+                  tsSigma: 8.333,
+                  isAdmin: false
+                }
+              });
+              autoRegistered.push(`ID${playerInput} (новый игрок)`);
+              logger.info(`Auto-registered player with telegram ID: ${telegramId}`);
+            } catch (error) {
+              logger.error(`Failed to auto-register player with telegram ID ${telegramId}:`, error);
+              notFoundPlayers.push(playerInput);
+              continue;
+            }
+          }
+          else {
+            // По имени автоматически не регистрируем, так как нет уникального идентификатора
+            notFoundPlayers.push(playerInput);
+            continue;
+          }
+        }
+
+        // Проверяем, уже записан ли игрок
+        if (currentPlayerIds.has(player.id)) {
+          alreadyJoined.push(`${player.firstName} (@${player.username || 'no_username'})`);
+          continue;
+        }
+
+        // Добавляем игрока в основной состав
+        await prisma.weekEntry.create({
+          data: {
+            week,
+            year,
+            playerId: player.id,
+            state: 'MAIN',
+            isPaid: false
+          }
+        });
+
+        addedPlayers.push(`${player.firstName} (@${player.username || 'no_username'})`);
+        currentPlayerIds.add(player.id);
+
+      } catch (error) {
+        logger.error(`Error adding player "${playerInput}":`, error);
+        notFoundPlayers.push(playerInput);
+      }
+    }
+
+    // Формируем отчет
+    let reportMessage = `✅ <b>Пакетное добавление завершено!</b>\n\n`;
+    
+    if (addedPlayers.length > 0) {
+      reportMessage += `➕ <b>Добавлено игроков (${addedPlayers.length}):</b>\n`;
+      addedPlayers.forEach((player, i) => {
+        reportMessage += `${i + 1}. ${player}\n`;
+      });
+      reportMessage += '\n';
+    }
+
+    if (autoRegistered.length > 0) {
+      reportMessage += `🆕 <b>Автоматически зарегистрированы (${autoRegistered.length}):</b>\n`;
+      autoRegistered.forEach((player, i) => {
+        reportMessage += `${i + 1}. ${player}\n`;
+      });
+      reportMessage += '\n';
+    }
+
+    if (alreadyJoined.length > 0) {
+      reportMessage += `ℹ️ <b>Уже записаны (${alreadyJoined.length}):</b>\n`;
+      alreadyJoined.forEach((player, i) => {
+        reportMessage += `${i + 1}. ${player}\n`;
+      });
+      reportMessage += '\n';
+    }
+
+    if (notFoundPlayers.length > 0) {
+      reportMessage += `❌ <b>Не найдены (${notFoundPlayers.length}):</b>\n`;
+      notFoundPlayers.forEach((player, i) => {
+        reportMessage += `${i + 1}. ${player}\n`;
+      });
+      reportMessage += '\n';
+    }
+
+    // Получаем актуальную статистику
+    const { main } = await ctx.gameService.getWeekPlayers();
+    const totalPlayers = main.length;
+    const needed = Math.max(0, 24 - totalPlayers);
+
+    reportMessage += `📊 <b>Итого записано:</b> ${totalPlayers}/24\n`;
+    if (needed > 0) {
+      reportMessage += `🎯 <b>Нужно еще:</b> ${needed} игрок(ов)`;
+    } else {
+      reportMessage += `🔥 <b>TRI состав полный! Можно формировать команды</b>`;
+    }
+
+    await ctx.reply(reportMessage, { parse_mode: 'HTML' });
+
+    logger.info(`Bulk add completed: ${addedPlayers.length} added, ${autoRegistered.length} auto-registered, ${alreadyJoined.length} already joined, ${notFoundPlayers.length} not found for week ${year}-${week} by admin ${ctx.from?.id}`);
+
+  } catch (error) {
+    logger.error('Error in tri_bulk_add command:', error);
+    await ctx.reply('❌ Произошла ошибка при пакетном добавлении игроков.');
+  }
+};
+
 export const triResultsCommand = async (ctx: BotContext): Promise<void> => {
   try {
     if (!await checkAdminPrivateOnly(ctx)) {
