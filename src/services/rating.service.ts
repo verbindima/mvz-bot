@@ -4,6 +4,7 @@ import { prisma } from '../utils/database';
 import { logger } from '../utils/logger';
 import { CONFIG } from '../config';
 import { InactivityService } from './inactivity.service';
+import { PairService } from './pair.service';
 
 interface UpdateTrueSkillOptions {
   matchPlayedAt?: Date;
@@ -237,6 +238,15 @@ export class RatingService {
     }
 
     await prisma.$transaction(transactionOperations);
+
+    // Update pair statistics after TrueSkill updates
+    try {
+      const pairService = container.resolve(PairService);
+      await pairService.updateAfterMatch(winnerIds, loserIds, matchPlayedAt);
+    } catch (error) {
+      logger.error('Failed to update pair statistics:', error);
+      // Don't throw here - pair updates are not critical for core rating functionality
+    }
 
     // лог: усреднённые сдвиги для контроля
     const avgDeltaW =

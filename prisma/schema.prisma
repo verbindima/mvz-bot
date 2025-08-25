@@ -26,6 +26,8 @@ model Player {
   ratings       Rating[]
   teamPlayers   TeamPlayer[]
   ratingEvents  RatingEvent[]
+  pairsAsA      PlayerPair[] @relation("PlayerAPairs")
+  pairsAsB      PlayerPair[] @relation("PlayerBPairs")
 
   @@map("players")
 }
@@ -132,5 +134,36 @@ model RatingEvent {
   player      Player             @relation(fields: [playerId], references: [id], onDelete: Cascade)
 
   @@map("rating_events")
+}
+
+model PlayerPair {
+  id              Int      @id @default(autoincrement())
+  playerAId       Int      // Always smaller player ID
+  playerBId       Int      // Always larger player ID
+  
+  // Together stats
+  togetherGames   Int      @default(0)
+  togetherWins    Int      @default(0)
+  
+  // Versus stats  
+  vsGames         Int      @default(0)
+  vsWins          Int      @default(0)  // Wins by playerA against playerB
+  
+  // Calculated ratings
+  synergyMu       Float    @default(0)
+  synergySigma    Float    @default(1)
+  counterMu       Float    @default(0)
+  counterSigma    Float    @default(1)
+  
+  lastGameAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  playerA         Player   @relation("PlayerAPairs", fields: [playerAId], references: [id], onDelete: Cascade)
+  playerB         Player   @relation("PlayerBPairs", fields: [playerBId], references: [id], onDelete: Cascade)
+
+  @@unique([playerAId, playerBId])
+  @@map("player_pairs")
 }
 

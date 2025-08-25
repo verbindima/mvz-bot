@@ -105,6 +105,22 @@ bot.action('regenerate_teams', async (ctx) => {
   await teamsCommand(ctx);
 });
 
+bot.action('toggle_synergy', async (ctx) => {
+  if (!CONFIG.ADMINS.includes(ctx.from.id)) {
+    await ctx.answerCbQuery(MESSAGES.ACCESS_DENIED);
+    return;
+  }
+
+  // Toggle the synergy setting
+  (CONFIG as any).SYNERGY_ENABLED = !CONFIG.SYNERGY_ENABLED;
+  
+  const status = CONFIG.SYNERGY_ENABLED ? 'включена' : 'отключена';
+  await ctx.answerCbQuery(`🧪 Химия команд ${status}`, { show_alert: true });
+  
+  // Regenerate teams with new setting
+  await teamsCommand(ctx);
+});
+
 bot.action('edit_teams', async (ctx) => {
   if (!CONFIG.ADMINS.includes(ctx.from.id)) {
     await ctx.answerCbQuery(MESSAGES.ACCESS_DENIED);

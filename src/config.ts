@@ -20,6 +20,19 @@ interface Config {
   RATING_MVP_ENABLED: boolean;
   RATING_MVP_MU_BONUS: number;
   RATING_MVP_SIGMA_MULT: number;
+  // Player pair chemistry system
+  SYNERGY_ENABLED: boolean;
+  SYNERGY_WEIGHT_SAME: number;
+  SYNERGY_WEIGHT_VS: number;
+  PAIR_CAP: number;
+  PAIR_MIN_SAME_GAMES: number;
+  PAIR_MIN_VS_GAMES: number;
+  PAIR_GAMES_FOR_CONF: number;
+  PAIR_DECAY_HALF_LIFE_WEEKS: number;
+  PAIR_DECAY_FACTOR: number;
+  PAIR_SCALE_SAME: number;
+  PAIR_SCALE_VS: number;
+  MAX_BASE_DIFF: number;
 }
 
 class ConfigManager {
@@ -44,6 +57,19 @@ class ConfigManager {
       RATING_MVP_ENABLED: process.env.RATING_MVP_ENABLED !== 'false',
       RATING_MVP_MU_BONUS: parseFloat(process.env.RATING_MVP_MU_BONUS || '0.6'),
       RATING_MVP_SIGMA_MULT: parseFloat(process.env.RATING_MVP_SIGMA_MULT || '1.0'),
+      // Player pair chemistry system
+      SYNERGY_ENABLED: process.env.SYNERGY_ENABLED !== 'false',
+      SYNERGY_WEIGHT_SAME: parseFloat(process.env.SYNERGY_WEIGHT_SAME || '0.6'),
+      SYNERGY_WEIGHT_VS: parseFloat(process.env.SYNERGY_WEIGHT_VS || '0.4'),
+      PAIR_CAP: parseFloat(process.env.PAIR_CAP || '0.8'),
+      PAIR_MIN_SAME_GAMES: parseInt(process.env.PAIR_MIN_SAME_GAMES || '3'),
+      PAIR_MIN_VS_GAMES: parseInt(process.env.PAIR_MIN_VS_GAMES || '3'),
+      PAIR_GAMES_FOR_CONF: parseInt(process.env.PAIR_GAMES_FOR_CONF || '8'),
+      PAIR_DECAY_HALF_LIFE_WEEKS: parseInt(process.env.PAIR_DECAY_HALF_LIFE_WEEKS || '8'),
+      PAIR_DECAY_FACTOR: parseFloat(process.env.PAIR_DECAY_FACTOR || '0.9'),
+      PAIR_SCALE_SAME: parseFloat(process.env.PAIR_SCALE_SAME || '2.0'),
+      PAIR_SCALE_VS: parseFloat(process.env.PAIR_SCALE_VS || '2.0'),
+      MAX_BASE_DIFF: parseFloat(process.env.MAX_BASE_DIFF || '2.0'),
     };
   }
 
@@ -73,9 +99,10 @@ export const KEYBOARDS = {
     [{ text: '📊 Статистика', callback_data: 'stats' }, { text: '📋 Информация', callback_data: 'refresh_info' }],
     [{ text: '❎ Закрыть', callback_data: 'close_menu' }],
   ],
-  ADMIN_TEAMS: [
+  ADMIN_TEAMS: (synergyEnabled: boolean) => [
     [{ text: '✅ Принять', callback_data: 'confirm_teams' }],
     [{ text: '♻️ Пересчитать', callback_data: 'regenerate_teams' }],
+    [{ text: synergyEnabled ? '🧪 Химия: Вкл' : '⚗️ Химия: Выкл', callback_data: 'toggle_synergy' }],
     [{ text: '✏️ Ручная правка', callback_data: 'edit_teams' }],
     [{ text: '❎ Закрыть', callback_data: 'close_admin_menu' }],
   ],

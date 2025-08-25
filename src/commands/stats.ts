@@ -1,8 +1,10 @@
 import { container } from 'tsyringe';
 import { BotContext } from '../bot';
 import { StatisticsService } from '../services/statistics.service';
+import { PairService } from '../services/pair.service';
 import { escapeHtml } from '../utils/html';
 import { safeEditOrReply } from '../utils/safe-edit';
+import { CONFIG } from '../config';
 
 const generateStatsMessage = async (ctx: BotContext, telegramId: number) => {
   const statisticsService = container.resolve(StatisticsService);
@@ -60,6 +62,35 @@ const generateStatsMessage = async (ctx: BotContext, telegramId: number) => {
       const deltaSymbol = game.delta > 0 ? '📈' : game.delta < 0 ? '📉' : '➡️';
       message += `${deltaSymbol} ${date} vs ${game.opponent}\n`;
     });
+  }
+
+  // Pair statistics (if enabled and player has games)
+  if (CONFIG.SYNERGY_ENABLED && stats.gamesPlayed > 0) {
+    try {
+      const pairService = container.resolve(PairService);
+      const pairStats = await pairService.getPlayerPairStats(stats.player.id);
+      
+      if (pairStats) {
+        if (pairStats.bestSynergies.length > 0) {
+          message += `\n🤝 <b>Лучшие связки:</b>\n`;
+          pairStats.bestSynergies.forEach((synergy) => {
+            const escapedPartner = escapeHtml(synergy.partnerName);
+            message += `   • ${escapedPartner} (${synergy.togetherGames} игр, ${(synergy.winRate * 100).toFixed(1)}%)\n`;
+          });
+        }
+        
+        if (pairStats.worstCounters.length > 0) {
+          message += `\n🎯 <b>Сложные противники:</b>\n`;
+          pairStats.worstCounters.forEach((counter) => {
+            const escapedOpponent = escapeHtml(counter.opponentName);
+            message += `   • ${escapedOpponent} (${counter.vsGames} игр, ${(counter.winRate * 100).toFixed(1)}%)\n`;
+          });
+        }
+      }
+    } catch (error) {
+      // Ignore pair stats errors - they're not critical
+      console.warn('Failed to load pair statistics:', error);
+    }
   }
 
   if (stats.gamesPlayed === 0) {

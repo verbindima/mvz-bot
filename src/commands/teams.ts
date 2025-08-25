@@ -1,6 +1,6 @@
 import { container } from 'tsyringe';
 import { BotContext } from '../bot';
-import { KEYBOARDS } from '../config';
+import { KEYBOARDS, CONFIG } from '../config';
 import { TeamService } from '../services/team.service';
 import { TeamPlayerService } from '../services/team-player.service';
 import { checkAdminPrivateOnly } from '../utils/chat';
@@ -32,7 +32,7 @@ export const teamsCommand = async (ctx: BotContext): Promise<void> => {
     }
 
     const teamService = container.resolve(TeamService);
-    const balance = teamService.generateBalancedTeams(main);
+    const balance = await teamService.generateBalancedTeams(main);
 
     let teamNames = { teamA: '🔴', teamB: '🔵' };
 
@@ -90,7 +90,7 @@ export const teamsCommand = async (ctx: BotContext): Promise<void> => {
     if (ctx.callbackQuery) {
       await ctx.editMessageText(message, {
         reply_markup: {
-          inline_keyboard: KEYBOARDS.ADMIN_TEAMS,
+          inline_keyboard: KEYBOARDS.ADMIN_TEAMS(CONFIG.SYNERGY_ENABLED),
         },
         parse_mode: 'HTML',
       });
@@ -98,7 +98,7 @@ export const teamsCommand = async (ctx: BotContext): Promise<void> => {
     } else {
       await ctx.reply(message, {
         reply_markup: {
-          inline_keyboard: KEYBOARDS.ADMIN_TEAMS,
+          inline_keyboard: KEYBOARDS.ADMIN_TEAMS(CONFIG.SYNERGY_ENABLED),
         },
         parse_mode: 'HTML',
       });

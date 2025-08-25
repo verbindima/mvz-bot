@@ -1,8 +1,9 @@
-import { injectable } from 'tsyringe';
+import { injectable, container } from 'tsyringe';
 import { Player } from '@prisma/client';
 import { CONFIG } from '../config';
 import { logger } from '../utils/logger';
 import { escapeHtml } from '../utils/html';
+import { PairService, PairMatrix } from './pair.service';
 
 export interface Team {
   players: Player[];
@@ -15,6 +16,8 @@ export interface TeamBalance {
   teamB: Team;
   difference: number;
   winProbability: number;
+  effectiveDifference?: number;
+  synergyEnabled?: boolean;
 }
 
 @injectable()
@@ -51,36 +54,135 @@ export class TeamService {
     return { teamA, teamB };
   }
 
-  private stochasticImprovement(teamA: Player[], teamB: Player[]): void {
-    const maxIterations = 500;
-    let bestDiff = Math.abs(this.calculateTotalWeight(teamA) - this.calculateTotalWeight(teamB));
+  private confidence(sigma: number): number {
+    return Math.max(0, 1 - sigma);
+  }
 
-    for (let i = 0; i < maxIterations && bestDiff > 1; i++) {
+  private calculateSynergyWithin(team: Player[], pairMatrix: PairMatrix): number {
+    let synergySum = 0;
+    
+    for (let i = 0; i < team.length; i++) {
+      for (let j = i + 1; j < team.length; j++) {
+        const pairKey = this.generatePairKey(team[i].id, team[j].id);
+        const pairData = pairMatrix[pairKey];
+        
+        if (pairData && pairData.synergyMu !== undefined) {
+          const confidenceValue = this.confidence(pairData.synergySigma);
+          synergySum += pairData.synergyMu * confidenceValue;
+        }
+      }
+    }
+    
+    return synergySum;
+  }
+
+  private calculateCounterBetween(teamA: Player[], teamB: Player[], pairMatrix: PairMatrix): number {
+    let counterSum = 0;
+    
+    for (const playerA of teamA) {
+      for (const playerB of teamB) {
+        const pairKey = this.generatePairKey(playerA.id, playerB.id);
+        const pairData = pairMatrix[pairKey];
+        
+        if (pairData && pairData.counterMu !== undefined) {
+          const confidenceValue = this.confidence(pairData.counterSigma);
+          // Apply counter effect based on which player has advantage
+          const advantage = playerA.id < playerB.id ? pairData.counterMu : -pairData.counterMu;
+          counterSum += advantage * confidenceValue;
+        }
+      }
+    }
+    
+    return counterSum;
+  }
+
+  private generatePairKey(playerAId: number, playerBId: number): string {
+    const [minId, maxId] = [Math.min(playerAId, playerBId), Math.max(playerAId, playerBId)];
+    return `${minId}-${maxId}`;
+  }
+
+  private calculateEffectiveStrength(
+    team: Player[],
+    opposingTeam: Player[],
+    pairMatrix: PairMatrix
+  ): number {
+    if (!CONFIG.SYNERGY_ENABLED || Object.keys(pairMatrix).length === 0) {
+      return this.calculateTotalWeight(team);
+    }
+
+    const baseStrength = this.calculateTotalWeight(team);
+    const synSame = this.calculateSynergyWithin(team, pairMatrix);
+    const synVs = this.calculateCounterBetween(team, opposingTeam, pairMatrix);
+
+    return baseStrength + 
+           CONFIG.SYNERGY_WEIGHT_SAME * Math.tanh(synSame) + 
+           CONFIG.SYNERGY_WEIGHT_VS * Math.tanh(synVs);
+  }
+
+  private stochasticImprovement(teamA: Player[], teamB: Player[], pairMatrix: PairMatrix = {}): void {
+    const maxIterations = 500;
+    
+    let bestObjective: number;
+    if (CONFIG.SYNERGY_ENABLED && Object.keys(pairMatrix).length > 0) {
+      // Use effective difference when synergy is enabled
+      const effA = this.calculateEffectiveStrength(teamA, teamB, pairMatrix);
+      const effB = this.calculateEffectiveStrength(teamB, teamA, pairMatrix);
+      bestObjective = Math.abs(effA - effB);
+    } else {
+      // Use base difference when synergy is disabled
+      bestObjective = Math.abs(this.calculateTotalWeight(teamA) - this.calculateTotalWeight(teamB));
+    }
+
+    for (let i = 0; i < maxIterations && bestObjective > 1; i++) {
       const aIndex = Math.floor(Math.random() * teamA.length);
       const bIndex = Math.floor(Math.random() * teamB.length);
 
+      // Swap players
       [teamA[aIndex], teamB[bIndex]] = [teamB[bIndex], teamA[aIndex]];
 
-      const newDiff = Math.abs(this.calculateTotalWeight(teamA) - this.calculateTotalWeight(teamB));
+      // Check base difference constraint
+      const baseDiff = Math.abs(this.calculateTotalWeight(teamA) - this.calculateTotalWeight(teamB));
+      if (baseDiff > CONFIG.MAX_BASE_DIFF) {
+        // Revert swap if base difference is too large
+        [teamA[aIndex], teamB[bIndex]] = [teamB[bIndex], teamA[aIndex]];
+        continue;
+      }
 
-      if (newDiff < bestDiff) {
-        bestDiff = newDiff;
+      // Calculate new objective
+      let newObjective: number;
+      if (CONFIG.SYNERGY_ENABLED && Object.keys(pairMatrix).length > 0) {
+        const effA = this.calculateEffectiveStrength(teamA, teamB, pairMatrix);
+        const effB = this.calculateEffectiveStrength(teamB, teamA, pairMatrix);
+        newObjective = Math.abs(effA - effB);
       } else {
+        newObjective = baseDiff;
+      }
+
+      if (newObjective < bestObjective) {
+        bestObjective = newObjective;
+      } else {
+        // Revert swap if no improvement
         [teamA[aIndex], teamB[bIndex]] = [teamB[bIndex], teamA[aIndex]];
       }
     }
   }
 
-  public generateBalancedTeams(players: Player[]): TeamBalance {
+  public async generateBalancedTeams(players: Player[]): Promise<TeamBalance> {
     if (players.length !== 16) {
       throw new Error('Exactly 16 players are required for team generation');
     }
 
-    logger.info(`Generating teams using ${CONFIG.SCHEME} rating scheme`);
+    logger.info(`Generating teams using ${CONFIG.SCHEME} rating scheme with synergy ${CONFIG.SYNERGY_ENABLED ? 'enabled' : 'disabled'}`);
+
+    let pairMatrix: PairMatrix = {};
+    if (CONFIG.SYNERGY_ENABLED) {
+      const pairService = container.resolve(PairService);
+      pairMatrix = await pairService.loadMatrixFor(players.map(p => p.id));
+    }
 
     const { teamA: initialTeamA, teamB: initialTeamB } = this.snakeDraft(players);
 
-    this.stochasticImprovement(initialTeamA, initialTeamB);
+    this.stochasticImprovement(initialTeamA, initialTeamB, pairMatrix);
 
     const teamAWeight = this.calculateTotalWeight(initialTeamA);
     const teamBWeight = this.calculateTotalWeight(initialTeamB);
@@ -98,15 +200,26 @@ export class TeamService {
     };
 
     const difference = Math.abs(teamAWeight - teamBWeight);
+    
+    // Calculate effective difference if synergy is enabled
+    let effectiveDifference = difference;
+    if (CONFIG.SYNERGY_ENABLED && Object.keys(pairMatrix).length > 0) {
+      const effA = this.calculateEffectiveStrength(initialTeamA, initialTeamB, pairMatrix);
+      const effB = this.calculateEffectiveStrength(initialTeamB, initialTeamA, pairMatrix);
+      effectiveDifference = Math.abs(effA - effB);
+    }
+
     const winProbability = this.calculateWinProbability(teamAWeight, teamBWeight);
 
-    logger.info(`Teams generated. Difference: ${difference.toFixed(2)}, Win probability: ${winProbability.toFixed(1)}%`);
+    logger.info(`Teams generated. Base difference: ${difference.toFixed(2)}, Effective difference: ${effectiveDifference.toFixed(2)}, Win probability: ${winProbability.toFixed(1)}%`);
 
     return {
       teamA,
       teamB,
       difference,
       winProbability,
+      effectiveDifference,
+      synergyEnabled: CONFIG.SYNERGY_ENABLED
     };
   }
 
@@ -142,9 +255,15 @@ export class TeamService {
 
     const escapedStronger = escapeHtml(strongerTeamName);
     const escapedWeaker = escapeHtml(weakerTeamName);
+    
+    let differenceText = `📊 Разница в силе: ${balance.difference.toFixed(1)} μ`;
+    if (balance.synergyEnabled && balance.effectiveDifference !== undefined) {
+      differenceText += `\n🧪 С учетом химии: ${balance.effectiveDifference.toFixed(1)} μ`;
+    }
+    
     return (
       `${teamAStr}\n\n${teamBStr}\n\n` +
-      `📊 Разница в силе: ${balance.difference.toFixed(1)} μ\n` +
+      `${differenceText}\n` +
       `🎯 Шансы на победу ${escapedStronger}: ${winProb.toFixed(0)}% vs ${escapedWeaker}: ${(100 - winProb).toFixed(0)}%`
     );
   }
