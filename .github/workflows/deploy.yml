@@ -146,24 +146,36 @@ jobs:
             echo "Available disk space:"
             df -h . || echo "df command not available"
             
-            # Install dependencies with optimizations
+            # Install dependencies with optimizations for low-memory servers
             echo "Installing dependencies..."
-            export NODE_OPTIONS="--max-old-space-size=1024"
+            export NODE_OPTIONS="--max-old-space-size=512"
             export YARN_ENABLE_GLOBAL_CACHE=false
+            export YARN_CACHE_FOLDER="/tmp/yarn-cache"
+            
+            # Check if we have enough memory (need at least 400MB free)
+            AVAILABLE_MEM=$(free -m | awk 'NR==2{printf "%.0f", $7}')
+            echo "Available memory: ${AVAILABLE_MEM}MB"
+            if [ "$AVAILABLE_MEM" -lt 400 ]; then
+              echo "⚠️ Low memory detected, using npm instead of Yarn"
+              if command -v npm &> /dev/null; then
+                NODE_ENV=production npm install --production --no-audit --no-fund
+                exit $?
+              fi
+            fi
             
             # Use timeout to prevent hanging
-            timeout 900 NODE_ENV=production yarn install --check-cache || {
+            timeout 900 bash -c "NODE_ENV=production yarn install --check-cache" || {
               echo "❌ Yarn install failed, trying fallback options..."
               
               # Try clearing cache first
               yarn cache clean --all
-              timeout 600 NODE_ENV=production yarn install --no-immutable || {
+              timeout 600 bash -c "NODE_ENV=production yarn install --no-immutable" || {
                 echo "❌ Yarn still failing, trying with npm as fallback..."
                 
                 # Convert yarn.lock to package-lock.json if needed
                 if command -v npm &> /dev/null; then
                   rm -f package-lock.json
-                  npm install --production --no-audit --no-fund
+                  NODE_ENV=production npm install --production --no-audit --no-fund
                 else
                   echo "❌ Both Yarn and npm failed"
                   exit 1
