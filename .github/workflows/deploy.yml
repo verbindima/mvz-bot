@@ -140,8 +140,8 @@ jobs:
               echo "Yarn version: $(yarn --version)"
             fi
             
-            # Install dependencies
-            yarn install --production
+            # Install dependencies (Yarn 4 way, production only)
+            NODE_ENV=production yarn install
             
             # Setup environment if not exists
             if [ ! -f .env ]; then
