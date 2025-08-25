@@ -33,6 +33,10 @@ interface Config {
   PAIR_SCALE_SAME: number;
   PAIR_SCALE_VS: number;
   MAX_BASE_DIFF: number;
+  // TRI mode configuration
+  TRI_MODE_ENABLED: boolean;
+  TRI_MINI_MATCH_WEIGHT: number;
+  TRI_BULK_PARSE_MAX_LINES: number;
 }
 
 class ConfigManager {
@@ -70,6 +74,10 @@ class ConfigManager {
       PAIR_SCALE_SAME: parseFloat(process.env.PAIR_SCALE_SAME || '2.0'),
       PAIR_SCALE_VS: parseFloat(process.env.PAIR_SCALE_VS || '2.0'),
       MAX_BASE_DIFF: parseFloat(process.env.MAX_BASE_DIFF || '2.0'),
+      // TRI mode configuration
+      TRI_MODE_ENABLED: process.env.TRI_MODE_ENABLED !== 'false',
+      TRI_MINI_MATCH_WEIGHT: parseFloat(process.env.TRI_MINI_MATCH_WEIGHT || '0.5'),
+      TRI_BULK_PARSE_MAX_LINES: parseInt(process.env.TRI_BULK_PARSE_MAX_LINES || '100'),
     };
   }
 

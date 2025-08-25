@@ -20,6 +20,15 @@ export interface TeamBalance {
   synergyEnabled?: boolean;
 }
 
+export interface ThreeTeamBalance {
+  teamA: Team;
+  teamB: Team;
+  teamC: Team;
+  maxDifference: number;
+  avgDifference: number;
+  synergyEnabled?: boolean;
+}
+
 @injectable()
 export class TeamService {
   public getPlayerWeight(player: Player): number {
@@ -52,6 +61,32 @@ export class TeamService {
     });
 
     return { teamA, teamB };
+  }
+
+  private snakeDraftThreeTeams(players: Player[]): { teamA: Player[]; teamB: Player[]; teamC: Player[] } {
+    const sorted = [...players].sort((a, b) => this.getPlayerWeight(b) - this.getPlayerWeight(a));
+    const teamA: Player[] = [];
+    const teamB: Player[] = [];
+    const teamC: Player[] = [];
+
+    sorted.forEach((player, index) => {
+      const cycle = Math.floor(index / 3);
+      const position = index % 3;
+      
+      if (cycle % 2 === 0) {
+        // Forward: A -> B -> C
+        if (position === 0) teamA.push(player);
+        else if (position === 1) teamB.push(player);
+        else teamC.push(player);
+      } else {
+        // Reverse: C -> B -> A
+        if (position === 0) teamC.push(player);
+        else if (position === 1) teamB.push(player);
+        else teamA.push(player);
+      }
+    });
+
+    return { teamA, teamB, teamC };
   }
 
   private confidence(sigma: number): number {
@@ -117,6 +152,85 @@ export class TeamService {
     return baseStrength + 
            CONFIG.SYNERGY_WEIGHT_SAME * Math.tanh(synSame) + 
            CONFIG.SYNERGY_WEIGHT_VS * Math.tanh(synVs);
+  }
+
+  private stochasticImprovementThreeTeams(
+    teamA: Player[], 
+    teamB: Player[], 
+    teamC: Player[],
+    pairMatrix: PairMatrix = {}
+  ): void {
+    const maxIterations = 400;
+    const teams = [teamA, teamB, teamC];
+    
+    let bestObjective: number;
+    if (CONFIG.SYNERGY_ENABLED && Object.keys(pairMatrix).length > 0) {
+      const weights = teams.map((team, i) => {
+        const others = teams.filter((_, j) => j !== i);
+        return others.reduce((sum, other) => 
+          sum + this.calculateEffectiveStrength(team, other, pairMatrix), 0) / others.length;
+      });
+      const maxWeight = Math.max(...weights);
+      const minWeight = Math.min(...weights);
+      bestObjective = maxWeight - minWeight;
+    } else {
+      const weights = teams.map(team => this.calculateTotalWeight(team));
+      const maxWeight = Math.max(...weights);
+      const minWeight = Math.min(...weights);
+      bestObjective = maxWeight - minWeight;
+    }
+
+    for (let i = 0; i < maxIterations && bestObjective > 1; i++) {
+      // Выбираем две случайные команды
+      const teamIndex1 = Math.floor(Math.random() * 3);
+      let teamIndex2 = Math.floor(Math.random() * 3);
+      while (teamIndex2 === teamIndex1) {
+        teamIndex2 = Math.floor(Math.random() * 3);
+      }
+
+      const playerIndex1 = Math.floor(Math.random() * teams[teamIndex1].length);
+      const playerIndex2 = Math.floor(Math.random() * teams[teamIndex2].length);
+
+      // Меняем игроков местами
+      [teams[teamIndex1][playerIndex1], teams[teamIndex2][playerIndex2]] = 
+      [teams[teamIndex2][playerIndex2], teams[teamIndex1][playerIndex1]];
+
+      // Проверяем базовое ограничение
+      const baseWeights = teams.map(team => this.calculateTotalWeight(team));
+      const maxBaseWeight = Math.max(...baseWeights);
+      const minBaseWeight = Math.min(...baseWeights);
+      if (maxBaseWeight - minBaseWeight > CONFIG.MAX_BASE_DIFF) {
+        // Откатываем обмен
+        [teams[teamIndex1][playerIndex1], teams[teamIndex2][playerIndex2]] = 
+        [teams[teamIndex2][playerIndex2], teams[teamIndex1][playerIndex1]];
+        continue;
+      }
+
+      // Вычисляем новую целевую функцию
+      let newObjective: number;
+      if (CONFIG.SYNERGY_ENABLED && Object.keys(pairMatrix).length > 0) {
+        const weights = teams.map((team, j) => {
+          const others = teams.filter((_, k) => k !== j);
+          return others.reduce((sum, other) => 
+            sum + this.calculateEffectiveStrength(team, other, pairMatrix), 0) / others.length;
+        });
+        const maxWeight = Math.max(...weights);
+        const minWeight = Math.min(...weights);
+        newObjective = maxWeight - minWeight;
+      } else {
+        const maxWeight = Math.max(...baseWeights);
+        const minWeight = Math.min(...baseWeights);
+        newObjective = maxWeight - minWeight;
+      }
+
+      if (newObjective < bestObjective) {
+        bestObjective = newObjective;
+      } else {
+        // Откатываем обмен
+        [teams[teamIndex1][playerIndex1], teams[teamIndex2][playerIndex2]] = 
+        [teams[teamIndex2][playerIndex2], teams[teamIndex1][playerIndex1]];
+      }
+    }
   }
 
   private stochasticImprovement(teamA: Player[], teamB: Player[], pairMatrix: PairMatrix = {}): void {
@@ -221,6 +335,92 @@ export class TeamService {
       effectiveDifference,
       synergyEnabled: CONFIG.SYNERGY_ENABLED
     };
+  }
+
+  public async generateThreeTeams(players: Player[]): Promise<ThreeTeamBalance> {
+    if (players.length !== 24) {
+      throw new Error('Exactly 24 players are required for three-team generation');
+    }
+
+    logger.info(`Generating three teams using ${CONFIG.SCHEME} rating scheme with synergy ${CONFIG.SYNERGY_ENABLED ? 'enabled' : 'disabled'}`);
+
+    let pairMatrix: PairMatrix = {};
+    if (CONFIG.SYNERGY_ENABLED) {
+      const pairService = container.resolve(PairService);
+      pairMatrix = await pairService.loadMatrixFor(players.map(p => p.id));
+    }
+
+    const { teamA: initialTeamA, teamB: initialTeamB, teamC: initialTeamC } = this.snakeDraftThreeTeams(players);
+
+    this.stochasticImprovementThreeTeams(initialTeamA, initialTeamB, initialTeamC, pairMatrix);
+
+    const teamAWeight = this.calculateTotalWeight(initialTeamA);
+    const teamBWeight = this.calculateTotalWeight(initialTeamB);
+    const teamCWeight = this.calculateTotalWeight(initialTeamC);
+
+    const teamA: Team = {
+      players: initialTeamA,
+      totalRating: teamAWeight,
+      averageRating: teamAWeight / initialTeamA.length,
+    };
+
+    const teamB: Team = {
+      players: initialTeamB,
+      totalRating: teamBWeight,
+      averageRating: teamBWeight / initialTeamB.length,
+    };
+
+    const teamC: Team = {
+      players: initialTeamC,
+      totalRating: teamCWeight,
+      averageRating: teamCWeight / initialTeamC.length,
+    };
+
+    const weights = [teamAWeight, teamBWeight, teamCWeight];
+    const maxDifference = Math.max(...weights) - Math.min(...weights);
+    const avgWeight = weights.reduce((sum, w) => sum + w, 0) / weights.length;
+    const avgDifference = weights.reduce((sum, w) => sum + Math.abs(w - avgWeight), 0) / weights.length;
+
+    logger.info(`Three teams generated. Max difference: ${maxDifference.toFixed(2)}, Avg difference: ${avgDifference.toFixed(2)}`);
+
+    return {
+      teamA,
+      teamB,
+      teamC,
+      maxDifference,
+      avgDifference,
+      synergyEnabled: CONFIG.SYNERGY_ENABLED
+    };
+  }
+
+  public formatThreeTeamsMessage(
+    balance: ThreeTeamBalance,
+    teamNames: { teamA: string; teamB: string; teamC: string } = { teamA: '🔴', teamB: '🔵', teamC: '🟢' }
+  ): string {
+    const formatTeam = (team: Team, name: string): string => {
+      const playersList = team.players
+        .map((p, i) => {
+          const escapedName = escapeHtml(p.firstName);
+          const usernameStr = p.username ? ` (@${p.username})` : '';
+          return `${i + 1}. ${escapedName}${usernameStr} — ${this.getPlayerWeight(p).toFixed(1)}`;
+        })
+        .join('\n');
+
+      const escapedTeamName = escapeHtml(name);
+      return `<b>${escapedTeamName} команда</b> (${team.totalRating.toFixed(1)}):\n${playersList}`;
+    };
+
+    const teamAStr = formatTeam(balance.teamA, teamNames.teamA);
+    const teamBStr = formatTeam(balance.teamB, teamNames.teamB);
+    const teamCStr = formatTeam(balance.teamC, teamNames.teamC);
+
+    let differenceText = `📊 Максимальная разница: ${balance.maxDifference.toFixed(1)} μ`;
+    differenceText += `\n📈 Средняя разница: ${balance.avgDifference.toFixed(1)} μ`;
+
+    return (
+      `${teamAStr}\n\n${teamBStr}\n\n${teamCStr}\n\n` +
+      `${differenceText}`
+    );
   }
 
   public formatTeamsMessage(

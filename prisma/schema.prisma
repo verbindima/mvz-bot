@@ -64,8 +64,10 @@ model GameSession {
   id              Int      @id @default(autoincrement())
   week            Int
   year            Int
+  format          GameFormat @default(DUO)
   teamA           String   @default("")
   teamB           String   @default("")
+  teamC           String?  
   isConfirmed     Boolean  @default(false)
   isInitialized   Boolean  @default(false)
   paymentPhone    String?
@@ -78,6 +80,7 @@ model GameSession {
   // Relations
   teamPlayers     TeamPlayer[]
   matchResult     MatchResult?
+  triMatches      TriMiniMatch[]
 
   @@unique([week, year])
   @@map("game_sessions")
@@ -87,7 +90,7 @@ model TeamPlayer {
   id            Int         @id @default(autoincrement())
   gameSessionId Int
   playerId      Int
-  team          String      // "A" or "B"
+  team          String      // "A", "B", or "C"
   createdAt     DateTime    @default(now())
 
   // Relations
@@ -116,6 +119,11 @@ enum RatingEventReason {
   match
   idle
   mvp
+}
+
+enum GameFormat {
+  DUO
+  TRI
 }
 
 model RatingEvent {
@@ -165,5 +173,24 @@ model PlayerPair {
 
   @@unique([playerAId, playerBId])
   @@map("player_pairs")
+}
+
+model TriMiniMatch {
+  id            Int         @id @default(autoincrement())
+  sessionId     Int
+  seq           Int         // порядок ввода
+  t1            String      // 'A' | 'B' | 'C'
+  t2            String      // 'A' | 'B' | 'C' 
+  s1            Int         // счет команды t1
+  s2            Int         // счет команды t2
+  winner        String?     // 'A' | 'B' | 'C' (null при ничьей)
+  createdAt     DateTime    @default(now())
+  ratingApplied Boolean     @default(false)
+
+  // Relations
+  gameSession   GameSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, seq])
+  @@map("tri_mini_matches")
 }
 

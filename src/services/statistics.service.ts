@@ -184,6 +184,50 @@ export class StatisticsService {
     }
   }
 
+  async saveTriMiniMatch(
+    sessionId: number,
+    t1: string,
+    t2: string, 
+    s1: number,
+    s2: number,
+    winner: string | null,
+    seq: number
+  ): Promise<void> {
+    try {
+      await prisma.triMiniMatch.create({
+        data: {
+          sessionId,
+          seq,
+          t1,
+          t2,
+          s1,
+          s2,
+          winner,
+          ratingApplied: winner !== null
+        }
+      });
+
+      logger.info(`TRI mini-match saved: ${t1} ${s1}-${s2} ${t2} (seq: ${seq}, winner: ${winner || 'draw'})`);
+    } catch (error) {
+      logger.error('Error saving TRI mini-match:', error);
+      throw error;
+    }
+  }
+
+  async getTriMiniMatches(sessionId: number): Promise<any[]> {
+    try {
+      const matches = await prisma.triMiniMatch.findMany({
+        where: { sessionId },
+        orderBy: { seq: 'asc' }
+      });
+
+      return matches;
+    } catch (error) {
+      logger.error('Error getting TRI mini-matches:', error);
+      throw error;
+    }
+  }
+
   async saveMatchResult(
     gameSessionId: number,
     teamAScore: number,

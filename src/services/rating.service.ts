@@ -10,6 +10,7 @@ interface UpdateTrueSkillOptions {
   matchPlayedAt?: Date;
   mvpIds?: number[];
   applyIdleInflation?: boolean;
+  weight?: number;
 }
 
 @injectable()
@@ -30,7 +31,8 @@ export class RatingService {
     const {
       matchPlayedAt = new Date(),
       mvpIds = [],
-      applyIdleInflation = true
+      applyIdleInflation = true,
+      weight = 1.0
     } = options;
     // --- базовая валидация входа ---
     if (!winnerIds?.length || !loserIds?.length) {
@@ -128,8 +130,12 @@ export class RatingService {
     // избегаем деления на ноль, когда Phi(t) ≈ 0
     const eps = 1e-12;
     const Phi_t = Math.max(Phi(t), eps);
-    const v = phi(t) / Phi_t;
-    const w = v * (v + t);
+    let v = phi(t) / Phi_t;
+    let w = v * (v + t);
+    
+    // Применяем weight для мини-матчей
+    v *= weight;
+    w *= weight;
 
     // --- функция апдейта одного игрока ---
     const updateOne = (p: Player, sign: 1 | -1) => {
@@ -259,7 +265,7 @@ export class RatingService {
     logger.info(
       `TrueSkill updated: winners=${winners.length}, losers=${losers.length}, t=${t.toFixed(
         3,
-      )}, avgΔμ(w)=${avgDeltaW.toFixed(2)}, avgΔμ(l)=${avgDeltaL.toFixed(2)}, inflated=${inflatedCount}, mvp=${mvpIds.length}`,
+      )}, avgΔμ(w)=${avgDeltaW.toFixed(2)}, avgΔμ(l)=${avgDeltaL.toFixed(2)}, weight=${weight}, inflated=${inflatedCount}, mvp=${mvpIds.length}`,
     );
   }
 

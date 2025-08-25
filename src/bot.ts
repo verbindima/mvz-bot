@@ -29,6 +29,7 @@ import { paymentInfoCommand } from './commands/payment_info';
 import { confirmPlayerPaymentCommand, paymentStatusCommand } from './commands/admin_payment';
 import { editTeamsCommand, movePlayerCommand, recalculateBalanceCommand } from './commands/edit_teams';
 import { migratePairsCommand } from './commands/migrate_pairs';
+import { triInitCommand, triConfirmCommand, triCancelCommand, triResultsCommand } from './commands/tri';
 
 export interface BotContext extends Context {
   playerService: PlayerService;
@@ -77,6 +78,10 @@ bot.command('payment_info', paymentInfoCommand);
 bot.command('confirm_player_payment', confirmPlayerPaymentCommand);
 bot.command('payment_status', paymentStatusCommand);
 bot.command('migrate_pairs', migratePairsCommand);
+bot.command('tri_init', triInitCommand);
+bot.command('tri_confirm', triConfirmCommand);
+bot.command('tri_cancel', triCancelCommand);
+bot.command('tri_results', triResultsCommand);
 
 
 bot.action('join', async (ctx) => {

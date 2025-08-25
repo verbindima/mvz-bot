@@ -28,6 +28,8 @@ const generateInfoMessage = async (ctx: BotContext, playerId: number) => {
   const teamAName = escapeHtml(gameSession?.teamA || '🔴');
   const teamBName = escapeHtml(gameSession?.teamB || '🔵');
 
+  const teamCName = escapeHtml(gameSession?.teamC || '🟢');
+
   const playerInMain = main.find(p => p.id === playerId);
   const playerInWaiting = waiting.find(p => p.id === playerId);
 
@@ -41,13 +43,21 @@ const generateInfoMessage = async (ctx: BotContext, playerId: number) => {
         playerStatus = `🏅 Вы в команде ${teamAName}`;
       } else if (playerTeamResult === 'B') {
         playerStatus = `🏅 Вы в команде ${teamBName}`;
+      } else if (playerTeamResult === 'C') {
+        playerStatus = `🏅 Вы в команде ${teamCName}`;
       } else {
         playerStatus = '✅ Вы в основном составе';
       }
     } else {
       const position = main.findIndex(p => p.id === playerId) + 1;
-      playerStatus = '✅ Вы в основном составе';
-      playerPosition = ` (позиция ${position})`;
+      if (gameSession?.format === 'TRI') {
+        const needed = 24;
+        playerStatus = '✅ Вы в основном составе TRI';
+        playerPosition = ` (позиция ${position}/${needed})`;
+      } else {
+        playerStatus = '✅ Вы в основном составе';
+        playerPosition = ` (позиция ${position})`;
+      }
     }
   } else if (playerInWaiting) {
     const position = waiting.findIndex(p => p.id === playerId) + 1;
@@ -61,11 +71,94 @@ const generateInfoMessage = async (ctx: BotContext, playerId: number) => {
   if (teamsConfirmed && gameSession) {
     // Если команды утверждены, показываем составы команд
     const teamPlayerService = container.resolve(TeamPlayerService);
-    const teamComposition = await teamPlayerService.getTeamComposition(gameSession.id);
 
-    if (!teamComposition) {
-      mainPlayersText = '<i>Команды не найдены</i>';
+    if (gameSession.format === 'TRI') {
+      // Формат трёх команд
+      const threeTeamComposition = await teamPlayerService.getThreeTeamComposition(gameSession.id);
+
+      if (!threeTeamComposition) {
+        mainPlayersText = '<i>Команды не найдены</i>';
+      } else {
+        // Получаем дополнительную информацию о записях игроков для всех трёх команд
+        const teamAPlayersWithEntries = await prisma.player.findMany({
+          where: { id: { in: threeTeamComposition.teamA.map(p => p.id) } },
+          include: {
+            weekEntries: {
+              where: { week, year },
+              take: 1
+            }
+          }
+        });
+
+        const teamBPlayersWithEntries = await prisma.player.findMany({
+          where: { id: { in: threeTeamComposition.teamB.map(p => p.id) } },
+          include: {
+            weekEntries: {
+              where: { week, year },
+              take: 1
+            }
+          }
+        });
+
+        const teamCPlayersWithEntries = await prisma.player.findMany({
+          where: { id: { in: threeTeamComposition.teamC.map(p => p.id) } },
+          include: {
+            weekEntries: {
+              where: { week, year },
+              take: 1
+            }
+          }
+        });
+
+        // Получаем TeamService для расчета рейтингов
+        const teamService = container.resolve(TeamService);
+
+        // Форматируем команду A
+        const teamAStr = teamAPlayersWithEntries.map((p, i) => {
+          const escapedName = escapeHtml(p.firstName);
+          const paymentIcon = p.weekEntries[0]?.isPaid ? ' ✅' : '';
+          const rating = teamService.getPlayerWeight(p).toFixed(1);
+          return `${i + 1}. ${escapedName} — ${rating}${paymentIcon}`;
+        }).join('\n');
+
+        // Форматируем команду B
+        const teamBStr = teamBPlayersWithEntries.map((p, i) => {
+          const escapedName = escapeHtml(p.firstName);
+          const paymentIcon = p.weekEntries[0]?.isPaid ? ' ✅' : '';
+          const rating = teamService.getPlayerWeight(p).toFixed(1);
+          return `${i + 1}. ${escapedName} — ${rating}${paymentIcon}`;
+        }).join('\n');
+
+        // Форматируем команду C
+        const teamCStr = teamCPlayersWithEntries.map((p, i) => {
+          const escapedName = escapeHtml(p.firstName);
+          const paymentIcon = p.weekEntries[0]?.isPaid ? ' ✅' : '';
+          const rating = teamService.getPlayerWeight(p).toFixed(1);
+          return `${i + 1}. ${escapedName} — ${rating}${paymentIcon}`;
+        }).join('\n');
+
+        // Рассчитываем баланс трёх команд
+        const teamAWeight = threeTeamComposition.teamA.reduce((sum, p) => sum + teamService.getPlayerWeight(p), 0);
+        const teamBWeight = threeTeamComposition.teamB.reduce((sum, p) => sum + teamService.getPlayerWeight(p), 0);
+        const teamCWeight = threeTeamComposition.teamC.reduce((sum, p) => sum + teamService.getPlayerWeight(p), 0);
+
+        const maxWeight = Math.max(teamAWeight, teamBWeight, teamCWeight);
+        const minWeight = Math.min(teamAWeight, teamBWeight, teamCWeight);
+        const difference = maxWeight - minWeight;
+
+        mainPlayersText =
+          `<b>${teamAName}</b> (${teamAWeight.toFixed(1)}):\n${teamAStr}\n\n` +
+          `<b>${teamBName}</b> (${teamBWeight.toFixed(1)}):\n${teamBStr}\n\n` +
+          `<b>${teamCName}</b> (${teamCWeight.toFixed(1)}):\n${teamCStr}\n\n` +
+          `📊 Разница в силе (макс-мин): ${difference.toFixed(2)} μ | 🎮 Формат "winner stays"`;
+      }
     } else {
+      // Обычный формат двух команд
+      const teamComposition = await teamPlayerService.getTeamComposition(gameSession.id);
+
+      if (!teamComposition) {
+        mainPlayersText = '<i>Команды не найдены</i>';
+      } else {
       // Получаем дополнительную информацию о записях игроков
       const teamAPlayersWithEntries = await prisma.player.findMany({
         where: { id: { in: teamComposition.teamA.map(p => p.id) } },
@@ -112,16 +205,18 @@ const generateInfoMessage = async (ctx: BotContext, playerId: number) => {
       const difference = Math.abs(teamAWeight - teamBWeight);
       const winProbability = teamService.calculateWinProbability(teamAWeight, teamBWeight);
 
-      mainPlayersText =
-        `<b>${teamAName}</b> (${teamAWeight.toFixed(1)}):\n${teamAStr}\n\n` +
-        `<b>${teamBName}</b> (${teamBWeight.toFixed(1)}):\n${teamBStr}\n\n` +
-        `📊 Разница в силе: ${difference.toFixed(2)} μ | 🎯 Шансы на победу ${teamAName}: ${winProbability.toFixed(1)}% vs ${teamBName}: ${(100 - winProbability).toFixed(1)}%`;
+        mainPlayersText =
+          `<b>${teamAName}</b> (${teamAWeight.toFixed(1)}):\n${teamAStr}\n\n` +
+          `<b>${teamBName}</b> (${teamBWeight.toFixed(1)}):\n${teamBStr}\n\n` +
+          `📊 Разница в силе: ${difference.toFixed(2)} μ | 🎯 Шансы на победу ${teamAName}: ${winProbability.toFixed(1)}% vs ${teamBName}: ${(100 - winProbability).toFixed(1)}%`;
+      }
     }
   } else {
     // Обычный список если команды не утверждены
     if (main.length > 0) {
+      const maxPlayers = gameSession?.format === 'TRI' ? 24 : 16;
       mainPlayersText = main
-        .slice(0, 16)
+        .slice(0, maxPlayers)
         .map((p, i) => {
           const escapedName = escapeHtml(p.firstName);
           // Добавляем иконку оплаты если есть информация
@@ -158,7 +253,8 @@ const generateInfoMessage = async (ctx: BotContext, playerId: number) => {
 
   if (teamsConfirmed && gameSession) {
     // Если команды утверждены, показываем их
-    message += `🏆 <b>Утвержденные команды:</b>\n\n`;
+    const formatLabel = gameSession.format === 'TRI' ? 'TRI команды' : 'команды';
+    message += `🏆 <b>Утвержденные ${formatLabel}:</b>\n\n`;
     message += `${mainPlayersText}\n\n`;
 
     if (waiting.length > 0) {
@@ -168,10 +264,17 @@ const generateInfoMessage = async (ctx: BotContext, playerId: number) => {
     message += `📊 <b>Ваш статус:</b>\n`;
     message += `${playerStatus}${playerPosition}\n\n`;
 
-    message += `✅ <b>Команды готовы к игре!</b>`;
+    if (gameSession.format === 'TRI') {
+      message += `✅ <b>TRI команды готовы к игре в формате "winner stays"!</b>`;
+    } else {
+      message += `✅ <b>Команды готовы к игре!</b>`;
+    }
   } else {
     // Обычное отображение до утверждения команд
-    message += `👥 <b>Основной состав (${main.length}/16):</b>\n`;
+    const requiredPlayers = gameSession?.format === 'TRI' ? 24 : 16;
+    const formatLabel = gameSession?.format === 'TRI' ? 'TRI состав' : 'основной состав';
+
+    message += `👥 <b>${formatLabel} (${main.length}/${requiredPlayers}):</b>\n`;
     message += `${mainPlayersText}\n\n`;
 
     if (waiting.length > 0) {
@@ -181,11 +284,13 @@ const generateInfoMessage = async (ctx: BotContext, playerId: number) => {
     message += `📊 <b>Ваш статус:</b>\n`;
     message += `${playerStatus}${playerPosition}\n\n`;
 
-    if (main.length < 16) {
-      const needed = 16 - main.length;
-      message += `🎯 <b>Нужно еще:</b> ${needed} игроков для полного состава`;
+    if (main.length < requiredPlayers) {
+      const needed = requiredPlayers - main.length;
+      const formatType = gameSession?.format === 'TRI' ? 'TRI состава (3×8)' : 'полного состава';
+      message += `🎯 <b>Нужно еще:</b> ${needed} игроков для ${formatType}`;
     } else {
-      message += `🔥 <b>Основной состав полный!</b> Можно формировать команды`;
+      const formatType = gameSession?.format === 'TRI' ? 'TRI состав полный! Можно формировать три команды' : 'Основной состав полный! Можно формировать команды';
+      message += `🔥 <b>${formatType}</b>`;
     }
   }
 
