@@ -546,6 +546,101 @@ export const triBulkAddCommand = async (ctx: BotContext): Promise<void> => {
   }
 };
 
+// Функция для обновления интерфейса редактирования (редактирует существующее сообщение)
+export const refreshTriEditInterface = async (ctx: BotContext): Promise<void> => {
+  try {
+    const { week, year } = getCurrentWeek();
+
+    const gameSession = await prisma.gameSession.findUnique({
+      where: { week_year: { week, year } }
+    });
+
+    if (!gameSession || gameSession.format !== 'TRI' || !gameSession.isInitialized) {
+      await ctx.editMessageText('❌ TRI сессия недоступна для редактирования.');
+      return;
+    }
+
+    // Получаем составы команд
+    const teamPlayerService = container.resolve(TeamPlayerService);
+    const composition = await teamPlayerService.getThreeTeamComposition(gameSession.id);
+
+    if (!composition) {
+      await ctx.editMessageText('❌ Не найдены составы команд.');
+      return;
+    }
+
+    // Формируем сообщение с текущими составами
+    const teamService = container.resolve(TeamService);
+    
+    const teamAWeight = composition.teamA.reduce((sum, p) => sum + teamService.getPlayerWeight(p), 0);
+    const teamBWeight = composition.teamB.reduce((sum, p) => sum + teamService.getPlayerWeight(p), 0);
+    const teamCWeight = composition.teamC.reduce((sum, p) => sum + teamService.getPlayerWeight(p), 0);
+
+    const maxWeight = Math.max(teamAWeight, teamBWeight, teamCWeight);
+    const minWeight = Math.min(teamAWeight, teamBWeight, teamCWeight);
+    const difference = maxWeight - minWeight;
+
+    const formatTeam = (players: any[], teamName: string, weight: number) => {
+      const playersStr = players.map((p, i) => {
+        const rating = teamService.getPlayerWeight(p).toFixed(1);
+        return `${i + 1}. ${p.firstName} — ${rating}`;
+      }).join('\n');
+      return `<b>${teamName}</b> (${weight.toFixed(1)}):\n${playersStr}`;
+    };
+
+    let message = `⚽ <b>Редактирование TRI составов</b>\n\n`;
+    message += formatTeam(composition.teamA, '🔴 Красная', teamAWeight) + '\n\n';
+    message += formatTeam(composition.teamB, '🔵 Синяя', teamBWeight) + '\n\n';
+    message += formatTeam(composition.teamC, '🟢 Зелёная', teamCWeight) + '\n\n';
+    
+    // Добавляем информацию о балансе и вероятностях
+    message += `📊 <b>Баланс команд:</b>\n`;
+    message += `• Разница в силе (макс-мин): ${difference.toFixed(2)} μ\n`;
+    
+    // Рассчитываем примерные вероятности для трех команд
+    const totalWeight = teamAWeight + teamBWeight + teamCWeight;
+    const probA = (teamAWeight / totalWeight * 100);
+    const probB = (teamBWeight / totalWeight * 100);
+    const probC = (teamCWeight / totalWeight * 100);
+    
+    message += `• Примерное распределение силы:\n`;
+    message += `  🔴 ${probA.toFixed(1)}% | 🔵 ${probB.toFixed(1)}% | 🟢 ${probC.toFixed(1)}%\n\n`;
+    message += `💡 Выберите действие:`;
+
+    const keyboard = [
+      [
+        { text: '🔴→🔵 A→B', callback_data: 'tri_move_A_B' },
+        { text: '🔴→🟢 A→C', callback_data: 'tri_move_A_C' }
+      ],
+      [
+        { text: '🔵→🔴 B→A', callback_data: 'tri_move_B_A' },
+        { text: '🔵→🟢 B→C', callback_data: 'tri_move_B_C' }
+      ],
+      [
+        { text: '🟢→🔴 C→A', callback_data: 'tri_move_C_A' },
+        { text: '🟢→🔵 C→B', callback_data: 'tri_move_C_B' }
+      ],
+      [
+        { text: '🔄 Пересчитать', callback_data: 'tri_regenerate' },
+        { text: '♻️ Авто-баланс', callback_data: 'tri_auto_balance' }
+      ],
+      [
+        { text: '✅ Принять', callback_data: 'tri_accept_edit' },
+        { text: '❌ Отмена', callback_data: 'tri_cancel_edit' }
+      ]
+    ];
+
+    await ctx.editMessageText(message, {
+      parse_mode: 'HTML',
+      reply_markup: { inline_keyboard: keyboard }
+    });
+
+  } catch (error) {
+    logger.error('Error in refreshTriEditInterface:', error);
+    await ctx.editMessageText('❌ Ошибка при обновлении интерфейса редактирования.');
+  }
+};
+
 export const triEditCommand = async (ctx: BotContext): Promise<void> => {
   try {
     if (!await checkAdminPrivateOnly(ctx)) {
@@ -747,14 +842,30 @@ export const executeTriPlayerMove = async (ctx: BotContext, fromTeam: string, to
 
     await ctx.answerCbQuery(`✅ ${player.firstName} перемещен в команду ${toTeam}`);
 
-    // Возвращаемся к главному экрану редактирования
-    await triEditCommand(ctx);
+    // Возвращаемся к главному экрану редактирования (редактируем сообщение)
+    await refreshTriEditInterface(ctx);
 
     logger.info(`Player ${playerId} moved from team ${fromTeam} to team ${toTeam} in TRI session ${gameSession.id}`);
 
   } catch (error) {
     logger.error('Error in executeTriPlayerMove:', error);
     await ctx.answerCbQuery('❌ Ошибка при перемещении игрока');
+  }
+};
+
+// Функция для пересчета текущих составов (без изменения игроков)
+export const handleTriRecalculate = async (ctx: BotContext): Promise<void> => {
+  try {
+    await ctx.answerCbQuery('🔄 Пересчитываю составы...');
+    
+    // Просто обновляем интерфейс с актуальными данными
+    await refreshTriEditInterface(ctx);
+
+    logger.info(`TRI teams recalculated (display refreshed)`);
+
+  } catch (error) {
+    logger.error('Error in handleTriRecalculate:', error);
+    await ctx.answerCbQuery('❌ Ошибка при пересчете');
   }
 };
 
@@ -802,8 +913,8 @@ export const handleTriAutoBalance = async (ctx: BotContext): Promise<void> => {
 
     await ctx.answerCbQuery('✅ Команды автоматически сбалансированы');
 
-    // Обновляем интерфейс
-    await triEditCommand(ctx);
+    // Обновляем интерфейс (редактируем сообщение)
+    await refreshTriEditInterface(ctx);
 
     logger.info(`TRI teams auto-balanced for week ${year}-${week} by admin ${ctx.from?.id}`);
 

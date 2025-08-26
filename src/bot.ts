@@ -29,7 +29,7 @@ import { paymentInfoCommand } from './commands/payment_info';
 import { confirmPlayerPaymentCommand, paymentStatusCommand } from './commands/admin_payment';
 import { editTeamsCommand, movePlayerCommand, recalculateBalanceCommand } from './commands/edit_teams';
 import { migratePairsCommand } from './commands/migrate_pairs';
-import { triInitCommand, triConfirmCommand, triCancelCommand, triResultsCommand, triBulkAddCommand, triEditCommand, handleTriMove, executeTriPlayerMove, handleTriAutoBalance } from './commands/tri';
+import { triInitCommand, triConfirmCommand, triCancelCommand, triResultsCommand, triBulkAddCommand, triEditCommand, handleTriMove, executeTriPlayerMove, handleTriAutoBalance, handleTriRecalculate, refreshTriEditInterface } from './commands/tri';
 
 export interface BotContext extends Context {
   playerService: PlayerService;
@@ -284,7 +284,7 @@ const main = async () => {
         await ctx.answerCbQuery('❌ Доступ запрещен');
         return;
       }
-      await handleTriAutoBalance(ctx);
+      await handleTriRecalculate(ctx);
     });
 
     bot.action('tri_accept_edit', async (ctx) => {
@@ -312,7 +312,8 @@ const main = async () => {
         await ctx.answerCbQuery('❌ Доступ запрещен');
         return;
       }
-      await triEditCommand(ctx);
+      // Обновляем сообщение вместо создания нового
+      await refreshTriEditInterface(ctx);
     });
 
     container.registerInstance('bot', bot);

@@ -376,12 +376,25 @@ export class TeamService {
       averageRating: teamCWeight / initialTeamC.length,
     };
 
-    const weights = [teamAWeight, teamBWeight, teamCWeight];
-    const maxDifference = Math.max(...weights) - Math.min(...weights);
-    const avgWeight = weights.reduce((sum, w) => sum + w, 0) / weights.length;
-    const avgDifference = weights.reduce((sum, w) => sum + Math.abs(w - avgWeight), 0) / weights.length;
+    // Пересчитываем веса после стохастического улучшения
+    const finalTeamAWeight = teamA.players.reduce((sum, p) => sum + this.getPlayerWeight(p), 0);
+    const finalTeamBWeight = teamB.players.reduce((sum, p) => sum + this.getPlayerWeight(p), 0);
+    const finalTeamCWeight = teamC.players.reduce((sum, p) => sum + this.getPlayerWeight(p), 0);
 
-    logger.info(`Three teams generated. Max difference: ${maxDifference.toFixed(2)}, Avg difference: ${avgDifference.toFixed(2)}`);
+    // Обновляем объекты команд с финальными весами
+    teamA.totalRating = finalTeamAWeight;
+    teamA.averageRating = finalTeamAWeight / teamA.players.length;
+    teamB.totalRating = finalTeamBWeight;
+    teamB.averageRating = finalTeamBWeight / teamB.players.length;
+    teamC.totalRating = finalTeamCWeight;
+    teamC.averageRating = finalTeamCWeight / teamC.players.length;
+
+    const finalWeights = [finalTeamAWeight, finalTeamBWeight, finalTeamCWeight];
+    const maxDifference = Math.max(...finalWeights) - Math.min(...finalWeights);
+    const avgWeight = finalWeights.reduce((sum, w) => sum + w, 0) / finalWeights.length;
+    const avgDifference = finalWeights.reduce((sum, w) => sum + Math.abs(w - avgWeight), 0) / finalWeights.length;
+
+    logger.info(`Three teams generated. Final weights: [${finalWeights.map(w => w.toFixed(1)).join(', ')}]. Max difference: ${maxDifference.toFixed(2)}, Avg difference: ${avgDifference.toFixed(2)}`);
 
     return {
       teamA,
