@@ -176,8 +176,19 @@ export const triConfirmCommand = async (ctx: BotContext): Promise<void> => {
 
     // Пересчитываем рейтинги
     teamBalance.teamA.totalRating = composition.teamA.reduce((sum, p) => sum + teamService.getPlayerWeight(p), 0);
+    teamBalance.teamA.averageRating = teamBalance.teamA.totalRating / composition.teamA.length;
+    
     teamBalance.teamB.totalRating = composition.teamB.reduce((sum, p) => sum + teamService.getPlayerWeight(p), 0);
+    teamBalance.teamB.averageRating = teamBalance.teamB.totalRating / composition.teamB.length;
+    
     teamBalance.teamC.totalRating = composition.teamC.reduce((sum, p) => sum + teamService.getPlayerWeight(p), 0);
+    teamBalance.teamC.averageRating = teamBalance.teamC.totalRating / composition.teamC.length;
+
+    // Рассчитываем разности
+    const weights = [teamBalance.teamA.totalRating, teamBalance.teamB.totalRating, teamBalance.teamC.totalRating];
+    teamBalance.maxDifference = Math.max(...weights) - Math.min(...weights);
+    const avgWeight = weights.reduce((sum, w) => sum + w, 0) / weights.length;
+    teamBalance.avgDifference = weights.reduce((sum, w) => sum + Math.abs(w - avgWeight), 0) / weights.length;
 
     const message = teamService.formatThreeTeamsMessage(teamBalance, {
       teamA: '🔴 Красная',
