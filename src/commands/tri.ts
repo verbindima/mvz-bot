@@ -547,7 +547,7 @@ export const triBulkAddCommand = async (ctx: BotContext): Promise<void> => {
 };
 
 // Функция для обновления интерфейса редактирования (редактирует существующее сообщение)
-export const refreshTriEditInterface = async (ctx: BotContext): Promise<void> => {
+export const refreshTriEditInterface = async (ctx: BotContext, addTimestamp: boolean = false): Promise<void> => {
   try {
     const { week, year } = getCurrentWeek();
 
@@ -605,6 +605,13 @@ export const refreshTriEditInterface = async (ctx: BotContext): Promise<void> =>
     
     message += `• Примерное распределение силы:\n`;
     message += `  🔴 ${probA.toFixed(1)}% | 🔵 ${probB.toFixed(1)}% | 🟢 ${probC.toFixed(1)}%\n\n`;
+    
+    // Добавляем временную метку если запрошено (для кнопки "Пересчитать")
+    if (addTimestamp) {
+      const now = new Date();
+      message += `🔄 <i>Обновлено: ${now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</i>\n\n`;
+    }
+    
     message += `💡 Выберите действие:`;
 
     const keyboard = [
@@ -635,9 +642,22 @@ export const refreshTriEditInterface = async (ctx: BotContext): Promise<void> =>
       reply_markup: { inline_keyboard: keyboard }
     });
 
-  } catch (error) {
+  } catch (error: any) {
+    // Если сообщение не изменилось, пробрасываем ошибку дальше для обработки
+    if (error?.response?.error_code === 400 && 
+        error?.response?.description?.includes('message is not modified')) {
+      throw error;
+    }
+    
     logger.error('Error in refreshTriEditInterface:', error);
-    await ctx.editMessageText('❌ Ошибка при обновлении интерфейса редактирования.');
+    
+    // Пытаемся отредактировать сообщение с ошибкой
+    try {
+      await ctx.editMessageText('❌ Ошибка при обновлении интерфейса редактирования.');
+    } catch {
+      // Если и это не удалось, просто логируем
+      logger.error('Failed to show error message in TRI edit interface');
+    }
   }
 };
 
@@ -858,10 +878,9 @@ export const handleTriRecalculate = async (ctx: BotContext): Promise<void> => {
   try {
     await ctx.answerCbQuery('🔄 Пересчитываю составы...');
     
-    // Просто обновляем интерфейс с актуальными данными
-    await refreshTriEditInterface(ctx);
-
-    logger.info(`TRI teams recalculated (display refreshed)`);
+    // Обновляем интерфейс с актуальными данными (с временной меткой)
+    await refreshTriEditInterface(ctx, true);
+    logger.info(`TRI teams recalculated (display refreshed with timestamp)`);
 
   } catch (error) {
     logger.error('Error in handleTriRecalculate:', error);
