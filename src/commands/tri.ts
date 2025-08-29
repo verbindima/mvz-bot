@@ -954,6 +954,179 @@ export const handleTriAutoBalance = async (ctx: BotContext): Promise<void> => {
   }
 };
 
+export const triMvpCommand = async (ctx: BotContext): Promise<void> => {
+  try {
+    if (!await checkAdminPrivateOnly(ctx)) {
+      return;
+    }
+
+    if (!CONFIG.TRI_MODE_ENABLED) {
+      await ctx.reply('❌ Режим трёх команд отключен в конфигурации.');
+      return;
+    }
+
+    const text = ('text' in ctx.message! && ctx.message.text) ? ctx.message.text.replace('/tri_mvp', '').trim() : '';
+    const args = text.split(' ').filter(Boolean);
+    
+    if (args.length === 0 || args.length > 3) {
+      await ctx.reply(
+        '🏆 <b>Назначение MVP для TRI режима</b>\n\n' +
+        '<b>Использование:</b> <code>/tri_mvp @username1 [@username2] [@username3]</code>\n\n' +
+        '• Максимум 3 MVP (по одному из каждой команды)\n' +
+        '• Можно указать 1, 2 или 3 игроков\n' +
+        '• Каждый MVP должен быть из разной команды',
+        { parse_mode: 'HTML' }
+      );
+      return;
+    }
+
+    // Получаем текущую TRI сессию
+    const { week, year } = getCurrentWeek();
+    const gameSession = await prisma.gameSession.findUnique({
+      where: { week_year: { week, year } }
+    });
+
+    if (!gameSession || gameSession.format !== 'TRI') {
+      await ctx.reply('❌ Нет активной TRI сессии.');
+      return;
+    }
+
+    if (!gameSession.isConfirmed) {
+      await ctx.reply('❌ TRI команды не подтверждены. Используйте /tri_confirm.');
+      return;
+    }
+
+    // Получаем составы команд
+    const teamPlayerService = container.resolve(TeamPlayerService);
+    const composition = await teamPlayerService.getThreeTeamComposition(gameSession.id);
+
+    if (!composition) {
+      await ctx.reply('❌ Составы команд не найдены.');
+      return;
+    }
+
+    // Находим игроков по username и определяем их команды
+    const mvpPlayers: { id: number; firstName: string; username: string; team: string }[] = [];
+    
+    for (const usernameArg of args) {
+      const username = usernameArg.replace('@', '');
+      let found = false;
+      
+      // Ищем в команде A (красная)
+      const playerA = composition.teamA.find(p => p.username === username);
+      if (playerA) {
+        mvpPlayers.push({ id: playerA.id, firstName: playerA.firstName, username, team: 'A' });
+        found = true;
+      }
+      
+      // Ищем в команде B (синяя)
+      if (!found) {
+        const playerB = composition.teamB.find(p => p.username === username);
+        if (playerB) {
+          mvpPlayers.push({ id: playerB.id, firstName: playerB.firstName, username, team: 'B' });
+          found = true;
+        }
+      }
+      
+      // Ищем в команде C (зелёная)
+      if (!found) {
+        const playerC = composition.teamC.find(p => p.username === username);
+        if (playerC) {
+          mvpPlayers.push({ id: playerC.id, firstName: playerC.firstName, username, team: 'C' });
+          found = true;
+        }
+      }
+
+      if (!found) {
+        await ctx.reply(`❌ Игрок @${username} не найден в составах TRI команд`);
+        return;
+      }
+    }
+
+    // Проверяем, что не более одного MVP на команду
+    const teamCounts = { A: 0, B: 0, C: 0 };
+    mvpPlayers.forEach(p => teamCounts[p.team as keyof typeof teamCounts]++);
+    
+    if (teamCounts.A > 1 || teamCounts.B > 1 || teamCounts.C > 1) {
+      await ctx.reply('❌ Максимум один MVP на команду');
+      return;
+    }
+
+    // Проверяем, не были ли уже назначены MVP для этой TRI сессии
+    const existingMvpEvents = await prisma.ratingEvent.findMany({
+      where: {
+        reason: 'mvp',
+        meta: {
+          path: ['matchId'],
+          equals: gameSession.id
+        }
+      },
+      include: { player: true }
+    });
+
+    if (existingMvpEvents.length > 0) {
+      const existingMvpNames = existingMvpEvents.map(e => `${e.player.firstName} (${e.meta.team})`).join(', ');
+      await ctx.reply(`⚠️ MVP уже назначены для этой TRI сессии: ${existingMvpNames}`);
+      return;
+    }
+
+    // Применяем MVP бонусы
+    const mvpIds = mvpPlayers.map(p => p.id);
+    
+    await prisma.$transaction([
+      // Обновляем μ рейтинг MVP игроков
+      ...mvpIds.map(id =>
+        prisma.player.update({
+          where: { id },
+          data: {
+            tsMu: { increment: CONFIG.RATING_MVP_MU_BONUS },
+            mvpCount: { increment: 1 }
+          }
+        })
+      ),
+      // Создаем события MVP
+      ...mvpIds.map(id => {
+        const mvpPlayer = mvpPlayers.find(p => p.id === id)!;
+        const teamNames = { A: '🔴 Красная', B: '🔵 Синяя', C: '🟢 Зелёная' };
+        return prisma.ratingEvent.create({
+          data: {
+            playerId: id,
+            muBefore: 0,
+            muAfter: 0,
+            sigmaBefore: 0,
+            sigmaAfter: 0,
+            reason: 'mvp',
+            meta: {
+              bonus: CONFIG.RATING_MVP_MU_BONUS,
+              team: mvpPlayer.team,
+              teamName: teamNames[mvpPlayer.team as keyof typeof teamNames],
+              matchId: gameSession.id
+            }
+          }
+        });
+      })
+    ]);
+
+    // Формируем ответ
+    const teamNames = { A: '🔴 Красная', B: '🔵 Синяя', C: '🟢 Зелёная' };
+    const mvpList = mvpPlayers.map(p => 
+      `${p.firstName} (@${p.username}) - ${teamNames[p.team as keyof typeof teamNames]}`
+    ).join('\n');
+    
+    await ctx.reply(
+      `🏆 <b>MVP назначены для TRI игры:</b>\n\n${mvpList}\n\n` +
+      `💫 Бонус: +${CONFIG.RATING_MVP_MU_BONUS} к рейтингу каждому`,
+      { parse_mode: 'HTML' }
+    );
+
+    logger.info(`TRI MVP assigned for week ${year}-${week}: ${mvpPlayers.map(p => `${p.firstName} (${p.team})`).join(', ')} by admin ${ctx.from?.id}`);
+
+  } catch (error) {
+    logger.error('Error in tri_mvp command:', error);
+    await ctx.reply('❌ Произошла ошибка при назначении MVP.');
+  }
+};
+
 export const triResultsCommand = async (ctx: BotContext): Promise<void> => {
   try {
     if (!await checkAdminPrivateOnly(ctx)) {
