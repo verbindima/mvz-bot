@@ -8,41 +8,39 @@ datasource db {
 }
 
 model Player {
-  id            Int         @id @default(autoincrement())
-  telegramId    BigInt      @unique
+  id            Int           @id @default(autoincrement())
+  telegramId    BigInt        @unique
   username      String?
   firstName     String
-  tsMu          Float       @default(25)
-  tsSigma       Float       @default(8.333)
-  isAdmin       Boolean     @default(false)
-  lastPlayedAt  DateTime?   @db.Timestamp(6)
-  firstPlayedAt DateTime?   @db.Timestamp(6)
-  gamesPlayed   Int         @default(0)
-  mvpCount      Int         @default(0)
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-
-  weekEntries   WeekEntry[]
+  tsMu          Float         @default(25)
+  tsSigma       Float         @default(8.333)
+  isAdmin       Boolean       @default(false)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  firstPlayedAt DateTime?     @db.Timestamp(6)
+  gamesPlayed   Int           @default(0)
+  lastPlayedAt  DateTime?     @db.Timestamp(6)
+  mvpCount      Int           @default(0)
+  pairsAsA      PlayerPair[]  @relation("PlayerAPairs")
+  pairsAsB      PlayerPair[]  @relation("PlayerBPairs")
+  ratingEvents  RatingEvent[]
   ratings       Rating[]
   teamPlayers   TeamPlayer[]
-  ratingEvents  RatingEvent[]
-  pairsAsA      PlayerPair[] @relation("PlayerAPairs")
-  pairsAsB      PlayerPair[] @relation("PlayerBPairs")
+  weekEntries   WeekEntry[]
 
   @@map("players")
 }
 
 model WeekEntry {
-  id           Int       @id @default(autoincrement())
-  week         Int
-  year         Int
-  playerId     Int
-  state        String    @default("MAIN")
-  isPaid       Boolean   @default(false)
-  paymentTime  DateTime?
-  createdAt    DateTime  @default(now())
-
-  player       Player    @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  id          Int       @id @default(autoincrement())
+  week        Int
+  year        Int
+  playerId    Int
+  state       String    @default("MAIN")
+  isPaid      Boolean   @default(false)
+  paymentTime DateTime?
+  createdAt   DateTime  @default(now())
+  player      Player    @relation(fields: [playerId], references: [id], onDelete: Cascade)
 
   @@unique([week, year, playerId])
   @@map("week_entries")
@@ -54,33 +52,30 @@ model Rating {
   playerId  Int
   delta     Int
   createdAt DateTime @default(now())
-
   player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
 
   @@map("ratings")
 }
 
 model GameSession {
-  id              Int      @id @default(autoincrement())
-  week            Int
-  year            Int
-  format          GameFormat @default(DUO)
-  teamA           String   @default("")
-  teamB           String   @default("")
-  teamC           String?  
-  isConfirmed     Boolean  @default(false)
-  isInitialized   Boolean  @default(false)
-  paymentPhone    String?
-  paymentBank     String?
-  paymentAmount   Float?
-  gameDate        DateTime?
-  gameLocation    String?
-  createdAt       DateTime @default(now())
-
-  // Relations
-  teamPlayers     TeamPlayer[]
-  matchResult     MatchResult?
-  triMatches      TriMiniMatch[]
+  id            Int            @id @default(autoincrement())
+  week          Int
+  year          Int
+  teamA         String         @default("")
+  teamB         String         @default("")
+  isConfirmed   Boolean        @default(false)
+  isInitialized Boolean        @default(false)
+  paymentPhone  String?
+  paymentBank   String?
+  paymentAmount Float?
+  gameDate      DateTime?
+  gameLocation  String?
+  createdAt     DateTime       @default(now())
+  format        GameFormat     @default(DUO)
+  teamC         String?
+  matchResult   MatchResult?
+  teamPlayers   TeamPlayer[]
+  triMatches    TriMiniMatch[]
 
   @@unique([week, year])
   @@map("game_sessions")
@@ -90,10 +85,8 @@ model TeamPlayer {
   id            Int         @id @default(autoincrement())
   gameSessionId Int
   playerId      Int
-  team          String      // "A", "B", or "C"
+  team          String
   createdAt     DateTime    @default(now())
-
-  // Relations
   gameSession   GameSession @relation(fields: [gameSessionId], references: [id], onDelete: Cascade)
   player        Player      @relation(fields: [playerId], references: [id], onDelete: Cascade)
 
@@ -106,13 +99,66 @@ model MatchResult {
   gameSessionId Int         @unique
   teamAScore    Int
   teamBScore    Int
-  winnerTeam    String      // "A", "B", or "DRAW"
+  winnerTeam    String
   createdAt     DateTime    @default(now())
-
-  // Relations
   gameSession   GameSession @relation(fields: [gameSessionId], references: [id], onDelete: Cascade)
 
   @@map("match_results")
+}
+
+model RatingEvent {
+  id          Int               @id @default(autoincrement())
+  playerId    Int
+  matchId     Int?
+  muBefore    Float
+  muAfter     Float
+  sigmaBefore Float
+  sigmaAfter  Float
+  reason      RatingEventReason
+  meta        Json?
+  createdAt   DateTime          @default(now())
+  player      Player            @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@map("rating_events")
+}
+
+model PlayerPair {
+  id            Int       @id @default(autoincrement())
+  playerAId     Int
+  playerBId     Int
+  togetherGames Int       @default(0)
+  togetherWins  Int       @default(0)
+  vsGames       Int       @default(0)
+  vsWins        Int       @default(0)
+  synergyMu     Float     @default(0)
+  synergySigma  Float     @default(1)
+  counterMu     Float     @default(0)
+  counterSigma  Float     @default(1)
+  lastGameAt    DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  playerA       Player    @relation("PlayerAPairs", fields: [playerAId], references: [id], onDelete: Cascade)
+  playerB       Player    @relation("PlayerBPairs", fields: [playerBId], references: [id], onDelete: Cascade)
+
+  @@unique([playerAId, playerBId])
+  @@map("player_pairs")
+}
+
+model TriMiniMatch {
+  id            Int         @id @default(autoincrement())
+  sessionId     Int
+  seq           Int
+  t1            String
+  t2            String
+  s1            Int
+  s2            Int
+  winner        String?
+  createdAt     DateTime    @default(now())
+  ratingApplied Boolean     @default(false)
+  gameSession   GameSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, seq])
+  @@map("tri_mini_matches")
 }
 
 enum RatingEventReason {
@@ -125,72 +171,3 @@ enum GameFormat {
   DUO
   TRI
 }
-
-model RatingEvent {
-  id          Int                @id @default(autoincrement())
-  playerId    Int
-  matchId     Int?
-  muBefore    Float
-  muAfter     Float
-  sigmaBefore Float
-  sigmaAfter  Float
-  reason      RatingEventReason
-  meta        Json?              // Additional metadata (weeks inactive, MVP bonus amount, etc.)
-  createdAt   DateTime           @default(now())
-
-  // Relations
-  player      Player             @relation(fields: [playerId], references: [id], onDelete: Cascade)
-
-  @@map("rating_events")
-}
-
-model PlayerPair {
-  id              Int      @id @default(autoincrement())
-  playerAId       Int      // Always smaller player ID
-  playerBId       Int      // Always larger player ID
-  
-  // Together stats
-  togetherGames   Int      @default(0)
-  togetherWins    Int      @default(0)
-  
-  // Versus stats  
-  vsGames         Int      @default(0)
-  vsWins          Int      @default(0)  // Wins by playerA against playerB
-  
-  // Calculated ratings
-  synergyMu       Float    @default(0)
-  synergySigma    Float    @default(1)
-  counterMu       Float    @default(0)
-  counterSigma    Float    @default(1)
-  
-  lastGameAt      DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  // Relations
-  playerA         Player   @relation("PlayerAPairs", fields: [playerAId], references: [id], onDelete: Cascade)
-  playerB         Player   @relation("PlayerBPairs", fields: [playerBId], references: [id], onDelete: Cascade)
-
-  @@unique([playerAId, playerBId])
-  @@map("player_pairs")
-}
-
-model TriMiniMatch {
-  id            Int         @id @default(autoincrement())
-  sessionId     Int
-  seq           Int         // порядок ввода
-  t1            String      // 'A' | 'B' | 'C'
-  t2            String      // 'A' | 'B' | 'C' 
-  s1            Int         // счет команды t1
-  s2            Int         // счет команды t2
-  winner        String?     // 'A' | 'B' | 'C' (null при ничьей)
-  createdAt     DateTime    @default(now())
-  ratingApplied Boolean     @default(false)
-
-  // Relations
-  gameSession   GameSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-
-  @@index([sessionId, seq])
-  @@map("tri_mini_matches")
-}
-

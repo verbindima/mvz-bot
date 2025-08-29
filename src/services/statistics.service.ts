@@ -268,8 +268,14 @@ export class StatisticsService {
         .map(player => {
           const completedGames = player.teamPlayers.filter(tp => tp.gameSession.matchResult);
 
+          // Исключаем TRI матчи из подсчета обычных игр
+          const regularGames = completedGames.filter(tp => {
+            const result = tp.gameSession.matchResult!;
+            return result.winnerTeam !== 'TRI' && !(result.teamAScore === -1 && result.teamBScore === -1);
+          });
+
           let wins = 0;
-          for (const tp of completedGames) {
+          for (const tp of regularGames) {
             const result = tp.gameSession.matchResult!;
             if (
               (tp.team === 'A' && result.teamAScore > result.teamBScore) ||
@@ -279,7 +285,7 @@ export class StatisticsService {
             }
           }
 
-          const gamesPlayed = completedGames.length;
+          const gamesPlayed = regularGames.length;
           const winRate = gamesPlayed > 0 ? (wins / gamesPlayed) * 100 : 0;
 
           return {
