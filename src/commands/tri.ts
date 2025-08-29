@@ -4,6 +4,7 @@ import { CONFIG, MESSAGES } from '../config';
 import { TeamService } from '../services/team.service';
 import { TeamPlayerService } from '../services/team-player.service';
 import { RatingService } from '../services/rating.service';
+import { StatisticsService } from '../services/statistics.service';
 import { checkAdminPrivateOnly } from '../utils/chat';
 import { prisma } from '../utils/database';
 import { getCurrentWeek } from '../utils/week';
@@ -1256,6 +1257,10 @@ export const triResultsCommand = async (ctx: BotContext): Promise<void> => {
         logger.error(`Error processing TRI match ${i + 1}:`, error);
       }
     }
+
+    // Создаем основную запись матча для истории
+    const statisticsService = container.resolve(StatisticsService);
+    await statisticsService.saveMatchResult(gameSession.id, 0, 0); // TRI формат - без счета основного матча
 
     // Формируем отчет
     let reportMessage = `✅ <b>Обработка завершена!</b>\n\n`;

@@ -19,6 +19,18 @@ export interface PlayerStats {
     delta: number;
     opponent: string;
   }>;
+  triStats?: {
+    miniMatchesPlayed: number;
+    miniMatchesWon: number;
+    miniMatchesLost: number;
+    miniMatchesDrawn: number;
+    triGamesPlayed: number;
+    recentTriMatches: Array<{
+      date: Date;
+      matchesInGame: number;
+      wonMatches: number;
+    }>;
+  };
 }
 
 @injectable()
@@ -80,7 +92,7 @@ export class StatisticsService {
 
       for (const tp of completedGames) {
         const result = tp.gameSession.matchResult!;
-        
+
         if (result.teamAScore === result.teamBScore) {
           draws++;
         } else if (
@@ -106,6 +118,9 @@ export class StatisticsService {
       const mvpCount = player.mvpCount || 0;
       const mvpRate = gamesPlayed > 0 ? (mvpCount / gamesPlayed) * 100 : 0;
 
+      // Собираем TRI статистику
+      const triStats = await this.getTriStatistics(player.id);
+
       return {
         player,
         gamesPlayed,
@@ -117,11 +132,95 @@ export class StatisticsService {
         mvpRate,
         currentTSRating: `${player.tsMu.toFixed(1)}±${player.tsSigma.toFixed(1)}`,
         ratingHistory: ratingHistory.slice(0, 10), // Последние 10 игр
+        triStats,
       };
 
     } catch (error) {
       logger.error('Error getting player statistics:', error);
       throw error;
+    }
+  }
+
+  private async getTriStatistics(playerId: number): Promise<PlayerStats['triStats']> {
+    try {
+      // Получаем все TRI сессии, где участвовал игрок
+      const triGameSessions = await prisma.teamPlayer.findMany({
+        where: {
+          playerId,
+          gameSession: { format: 'TRI' }
+        },
+        include: {
+          gameSession: {
+            include: {
+              triMatches: true,
+              matchResult: true
+            }
+          }
+        },
+        orderBy: { createdAt: 'desc' }
+      });
+
+      if (triGameSessions.length === 0) {
+        return undefined;
+      }
+
+      let miniMatchesPlayed = 0;
+      let miniMatchesWon = 0;
+      let miniMatchesLost = 0;
+      let miniMatchesDrawn = 0;
+      const recentTriMatches: Array<{ date: Date; matchesInGame: number; wonMatches: number; }> = [];
+
+      for (const triSession of triGameSessions) {
+        const session = triSession.gameSession;
+        const playerTeam = triSession.team;
+
+        // Пропускаем если нет результатов матчей
+        if (!session.matchResult || session.triMatches.length === 0) {
+          continue;
+        }
+
+        let matchesInThisGame = 0;
+        let wonInThisGame = 0;
+
+        // Считаем мини-матчи для этого игрока
+        for (const miniMatch of session.triMatches) {
+          // Проверяем участвовал ли игрок в этом мини-матче
+          if (miniMatch.t1 === playerTeam || miniMatch.t2 === playerTeam) {
+            matchesInThisGame++;
+            miniMatchesPlayed++;
+
+            if (miniMatch.winner === null) {
+              miniMatchesDrawn++;
+            } else if (miniMatch.winner === playerTeam) {
+              miniMatchesWon++;
+              wonInThisGame++;
+            } else {
+              miniMatchesLost++;
+            }
+          }
+        }
+
+        if (matchesInThisGame > 0) {
+          recentTriMatches.push({
+            date: session.matchResult.createdAt,
+            matchesInGame: matchesInThisGame,
+            wonMatches: wonInThisGame
+          });
+        }
+      }
+
+      return {
+        miniMatchesPlayed,
+        miniMatchesWon,
+        miniMatchesLost,
+        miniMatchesDrawn,
+        triGamesPlayed: triGameSessions.filter(ts => ts.gameSession && ts.gameSession.matchResult).length,
+        recentTriMatches: recentTriMatches.slice(0, 5)
+      };
+
+    } catch (error) {
+      logger.error('Error getting TRI statistics:', error);
+      return undefined;
     }
   }
 
@@ -150,7 +249,7 @@ export class StatisticsService {
       const playersWithStats = players
         .map(player => {
           const completedGames = player.teamPlayers.filter(tp => tp.gameSession.matchResult);
-          
+
           let wins = 0;
           for (const tp of completedGames) {
             const result = tp.gameSession.matchResult!;
@@ -187,7 +286,7 @@ export class StatisticsService {
   async saveTriMiniMatch(
     sessionId: number,
     t1: string,
-    t2: string, 
+    t2: string,
     s1: number,
     s2: number,
     winner: string | null,
@@ -235,7 +334,7 @@ export class StatisticsService {
   ): Promise<void> {
     try {
       const winnerTeam = teamAScore > teamBScore ? 'A' : teamBScore > teamAScore ? 'B' : 'DRAW';
-      
+
       await prisma.matchResult.create({
         data: {
           gameSessionId,

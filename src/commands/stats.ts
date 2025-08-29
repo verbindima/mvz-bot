@@ -51,9 +51,39 @@ const generateStatsMessage = async (ctx: BotContext, telegramId: number) => {
   // Рейтинги
   message += `🧮 <b>TrueSkill:</b> ${stats.currentTSRating}\n\n`;
 
-  // История последних игр
+  // TRI статистика (если есть)
+  if (stats.triStats && stats.triStats.triGamesPlayed > 0) {
+    message += `🏆 <b>Легендарный турнир МВЗ:</b>\n`;
+    message += `🎮 <b>Турниров:</b> ${stats.triStats.triGamesPlayed}\n`;
+    message += `🔥 <b>Мини-матчи:</b> ${stats.triStats.miniMatchesWon}/${stats.triStats.miniMatchesPlayed}`;
+    
+    if (stats.triStats.miniMatchesDrawn > 0) {
+      message += ` (+${stats.triStats.miniMatchesDrawn} ничьих)`;
+    }
+    
+    if (stats.triStats.miniMatchesPlayed > 0) {
+      const triWinRate = (stats.triStats.miniMatchesWon / stats.triStats.miniMatchesPlayed) * 100;
+      message += `\n📊 <b>Процент побед в мини:</b> ${triWinRate.toFixed(1)}%\n`;
+    }
+
+    // Последние TRI игры
+    if (stats.triStats.recentTriMatches.length > 0) {
+      message += `\n📚 <b>Последние турниры:</b>\n`;
+      stats.triStats.recentTriMatches.forEach((game) => {
+        const date = game.date.toLocaleDateString('ru-RU', {
+          day: '2-digit',
+          month: '2-digit',
+        });
+        const winRate = game.matchesInGame > 0 ? (game.wonMatches / game.matchesInGame * 100).toFixed(0) : '0';
+        message += `⚽ ${date} - ${game.wonMatches}/${game.matchesInGame} (${winRate}%)\n`;
+      });
+    }
+    message += `\n`;
+  }
+
+  // История последних игр (обычный режим)
   if (stats.ratingHistory.length > 0) {
-    message += `📚 <b>Последние игры:</b>\n`;
+    message += `📚 <b>Последние игры (2×8):</b>\n`;
     stats.ratingHistory.slice(0, 5).forEach((game, index) => {
       const date = game.date.toLocaleDateString('ru-RU', {
         day: '2-digit',
