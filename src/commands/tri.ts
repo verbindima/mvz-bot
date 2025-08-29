@@ -1065,7 +1065,11 @@ export const triMvpCommand = async (ctx: BotContext): Promise<void> => {
     });
 
     if (existingMvpEvents.length > 0) {
-      const existingMvpNames = existingMvpEvents.map(e => `${e.player.firstName} (${e.meta.team})`).join(', ');
+      const existingMvpNames = existingMvpEvents.map(e => {
+        const meta = e.meta as any;
+        const team = meta?.team || 'Unknown';
+        return `${e.player.firstName} (${team})`;
+      }).join(', ');
       await ctx.reply(`⚠️ MVP уже назначены для этой TRI сессии: ${existingMvpNames}`);
       return;
     }
