@@ -4,6 +4,8 @@ import { escapeHtml } from '../utils/html';
 import { writeFileSync } from 'fs';
 import { join } from 'path';
 import { checkAdminPrivateOnly } from '../utils/chat';
+import { prisma } from '../utils/database';
+import { logger } from '../utils/logger';
 
 export const playersCommand = async (ctx: BotContext): Promise<void> => {
   try {
@@ -113,5 +115,72 @@ export const statsCommand = async (ctx: BotContext): Promise<void> => {
   } catch (error) {
     console.error('Error in stats command:', error);
     await ctx.reply('Произошла ошибка при получении статистики.');
+  }
+};
+
+export const migrateTriHistoryCommand = async (ctx: BotContext): Promise<void> => {
+  try {
+    if (!await checkAdminPrivateOnly(ctx)) {
+      return;
+    }
+
+    await ctx.reply('🔄 Запускаю миграцию TRI истории...');
+
+    try {
+      // Находим все TRI сессии с мини-матчами, но без MatchResult
+      const triSessions = await prisma.gameSession.findMany({
+        where: {
+          format: 'TRI',
+          matchResult: null,
+          triMatches: {
+            some: {} // Есть хотя бы один мини-матч
+          }
+        },
+        include: {
+          triMatches: true
+        }
+      });
+
+      if (triSessions.length === 0) {
+        await ctx.reply('✅ Все TRI сессии уже имеют записи в истории');
+        return;
+      }
+
+      let migratedCount = 0;
+
+      for (const session of triSessions) {
+        try {
+          // Создаем MatchResult запись для TRI сессии
+          await prisma.matchResult.create({
+            data: {
+              gameSessionId: session.id,
+              teamAScore: 0,
+              teamBScore: 0, 
+              winnerTeam: 'TRI', // Специальное значение для TRI формата
+              createdAt: session.createdAt
+            }
+          });
+
+          migratedCount++;
+        } catch (error) {
+          logger.error(`Error migrating TRI session ${session.id}:`, error);
+        }
+      }
+
+      await ctx.reply(
+        `✅ <b>Миграция завершена!</b>\n\n` +
+        `📊 Обработано: ${migratedCount}/${triSessions.length} TRI сессий\n\n` +
+        `🏆 Теперь "Легендарный турнир МВЗ" отображается в статистике`,
+        { parse_mode: 'HTML' }
+      );
+
+    } catch (error) {
+      logger.error('Migration error:', error);
+      await ctx.reply('❌ Ошибка при миграции TRI истории. Проверьте логи.');
+    }
+
+  } catch (error) {
+    logger.error('Error in migrate_tri_history command:', error);
+    await ctx.reply('❌ Произошла ошибка при выполнении команды.');
   }
 };

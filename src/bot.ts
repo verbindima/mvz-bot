@@ -12,7 +12,7 @@ import { joinCommand, leaveCommand } from './commands/game';
 import { teamsCommand } from './commands/teams';
 import { rateCommand, schemeCommand, resultCommand, finishGameCommand } from './commands/rating';
 import { mvpCommand } from './commands/mvp';
-import { playersCommand, exportCommand } from './commands/admin';
+import { playersCommand, exportCommand, migrateTriHistoryCommand } from './commands/admin';
 import { statsCommand, topPlayersCommand } from './commands/stats';
 import { helpCommand } from './commands/help';
 import { add16Command, clearAndAdd16Command, resetWeekCommand, addPlayerCommand } from './commands/bulk';
@@ -85,6 +85,7 @@ bot.command('tri_results', triResultsCommand);
 bot.command('tri_bulk_add', triBulkAddCommand);
 bot.command('tri_edit', triEditCommand);
 bot.command('tri_mvp', triMvpCommand);
+bot.command('migrate_tri_history', migrateTriHistoryCommand);
 
 
 bot.action('join', async (ctx) => {
