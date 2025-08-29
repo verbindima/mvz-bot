@@ -93,6 +93,11 @@ export class StatisticsService {
       for (const tp of completedGames) {
         const result = tp.gameSession.matchResult!;
 
+        // Пропускаем TRI матчи из основной статистики
+        if (result.winnerTeam === 'TRI' || (result.teamAScore === -1 && result.teamBScore === -1)) {
+          continue;
+        }
+
         if (result.teamAScore === result.teamBScore) {
           draws++;
         } else if (
@@ -113,7 +118,12 @@ export class StatisticsService {
         });
       }
 
-      const gamesPlayed = completedGames.length;
+      // Исключаем TRI матчи из подсчета обычных игр
+      const regularGames = completedGames.filter(tp => {
+        const result = tp.gameSession.matchResult!;
+        return result.winnerTeam !== 'TRI' && !(result.teamAScore === -1 && result.teamBScore === -1);
+      });
+      const gamesPlayed = regularGames.length;
       const winRate = gamesPlayed > 0 ? (wins / gamesPlayed) * 100 : 0;
       const mvpCount = player.mvpCount || 0;
       const mvpRate = gamesPlayed > 0 ? (mvpCount / gamesPlayed) * 100 : 0;
@@ -143,24 +153,28 @@ export class StatisticsService {
 
   private async getTriStatistics(playerId: number): Promise<PlayerStats['triStats']> {
     try {
-      // Получаем все TRI сессии, где участвовал игрок
-      const triGameSessions = await prisma.teamPlayer.findMany({
-        where: {
-          playerId,
-          gameSession: { format: 'TRI' }
-        },
-        include: {
-          gameSession: {
-            include: {
-              triMatches: true,
-              matchResult: true
-            }
-          }
-        },
-        orderBy: { createdAt: 'desc' }
+      // Получаем все TRI сессии через TeamPlayer
+      const triTeamPlayers = await prisma.teamPlayer.findMany({
+        where: { playerId }
       });
 
-      if (triGameSessions.length === 0) {
+      // Получаем все игровые сессии для этих TeamPlayer записей
+      const sessionIds = triTeamPlayers.map(tp => tp.gameSessionId);
+      const allSessions = await prisma.gameSession.findMany({
+        where: {
+          id: { in: sessionIds }
+        },
+        include: {
+          matchResult: true
+        }
+      });
+
+      // Фильтруем только TRI сессии с результатами
+      const triSessions = allSessions.filter(s => 
+        s.matchResult && (s.matchResult.winnerTeam === 'TRI' || (s.matchResult.teamAScore === -1 && s.matchResult.teamBScore === -1))
+      );
+
+      if (triSessions.length === 0) {
         return undefined;
       }
 
@@ -170,20 +184,24 @@ export class StatisticsService {
       let miniMatchesDrawn = 0;
       const recentTriMatches: Array<{ date: Date; matchesInGame: number; wonMatches: number; }> = [];
 
-      for (const triSession of triGameSessions) {
-        const session = triSession.gameSession;
-        const playerTeam = triSession.team;
+      for (const session of triSessions) {
+        // Находим команду игрока в этой сессии
+        const playerInSession = triTeamPlayers.find(tp => tp.gameSessionId === session.id);
+        if (!playerInSession) continue;
 
-        // Пропускаем если нет результатов матчей
-        if (!session.matchResult || session.triMatches.length === 0) {
-          continue;
-        }
+        const playerTeam = playerInSession.team;
 
         let matchesInThisGame = 0;
         let wonInThisGame = 0;
 
+        // Получаем мини-матчи для этой сессии
+        const miniMatches = await prisma.triMiniMatch.findMany({
+          where: { sessionId: session.id },
+          orderBy: { seq: 'asc' }
+        });
+
         // Считаем мини-матчи для этого игрока
-        for (const miniMatch of session.triMatches) {
+        for (const miniMatch of miniMatches) {
           // Проверяем участвовал ли игрок в этом мини-матче
           if (miniMatch.t1 === playerTeam || miniMatch.t2 === playerTeam) {
             matchesInThisGame++;
@@ -200,7 +218,7 @@ export class StatisticsService {
           }
         }
 
-        if (matchesInThisGame > 0) {
+        if (matchesInThisGame > 0 && session.matchResult) {
           recentTriMatches.push({
             date: session.matchResult.createdAt,
             matchesInGame: matchesInThisGame,
@@ -214,7 +232,7 @@ export class StatisticsService {
         miniMatchesWon,
         miniMatchesLost,
         miniMatchesDrawn,
-        triGamesPlayed: triGameSessions.filter(ts => ts.gameSession && ts.gameSession.matchResult).length,
+        triGamesPlayed: triSessions.length,
         recentTriMatches: recentTriMatches.slice(0, 5)
       };
 

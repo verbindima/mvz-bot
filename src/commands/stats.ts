@@ -55,15 +55,22 @@ const generateStatsMessage = async (ctx: BotContext, telegramId: number) => {
   if (stats.triStats && stats.triStats.triGamesPlayed > 0) {
     message += `🏆 <b>Легендарный турнир МВЗ:</b>\n`;
     message += `🎮 <b>Турниров:</b> ${stats.triStats.triGamesPlayed}\n`;
-    message += `🔥 <b>Мини-матчи:</b> ${stats.triStats.miniMatchesWon}/${stats.triStats.miniMatchesPlayed}`;
     
-    if (stats.triStats.miniMatchesDrawn > 0) {
-      message += ` (+${stats.triStats.miniMatchesDrawn} ничьих)`;
-    }
-    
-    if (stats.triStats.miniMatchesPlayed > 0) {
-      const triWinRate = (stats.triStats.miniMatchesWon / stats.triStats.miniMatchesPlayed) * 100;
-      message += `\n📊 <b>Процент побед в мини:</b> ${triWinRate.toFixed(1)}%\n`;
+    const total = stats.triStats.miniMatchesPlayed;
+    if (total > 0) {
+      const winPercent = (stats.triStats.miniMatchesWon / total * 100).toFixed(1);
+      const lossPercent = (stats.triStats.miniMatchesLost / total * 100).toFixed(1);
+      const drawPercent = (stats.triStats.miniMatchesDrawn / total * 100).toFixed(1);
+      
+      message += `🔥 <b>Мини-матчи:</b>\n`;
+      message += `   🏆 Победы: ${stats.triStats.miniMatchesWon} (${winPercent}%)\n`;
+      message += `   💔 Поражения: ${stats.triStats.miniMatchesLost} (${lossPercent}%)\n`;
+      
+      if (stats.triStats.miniMatchesDrawn > 0) {
+        message += `   🤝 Ничьи: ${stats.triStats.miniMatchesDrawn} (${drawPercent}%)\n`;
+      }
+      
+      message += `   📊 <b>Всего:</b> ${total} матчей\n`;
     }
 
     // Последние TRI игры

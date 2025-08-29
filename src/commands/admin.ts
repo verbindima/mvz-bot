@@ -150,12 +150,13 @@ export const migrateTriHistoryCommand = async (ctx: BotContext): Promise<void> =
 
       for (const session of triSessions) {
         try {
-          // Создаем MatchResult запись для TRI сессии
+          // Создаем MatchResult запись для TRI сессии  
+          // Используем -1 счет чтобы отличить от настоящих ничьих
           await prisma.matchResult.create({
             data: {
               gameSessionId: session.id,
-              teamAScore: 0,
-              teamBScore: 0, 
+              teamAScore: -1,
+              teamBScore: -1, 
               winnerTeam: 'TRI', // Специальное значение для TRI формата
               createdAt: session.createdAt
             }
