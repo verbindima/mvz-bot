@@ -67,7 +67,7 @@ export const triInitCommand = async (ctx: BotContext): Promise<void> => {
       update: {
         format: 'TRI',
         teamA: '🔴 Красная',
-        teamB: '🔵 Синяя', 
+        teamB: '🔵 Синяя',
         teamC: '🟢 Зелёная',
         isInitialized: true,
         isConfirmed: false
@@ -96,7 +96,7 @@ export const triInitCommand = async (ctx: BotContext): Promise<void> => {
     // Форматируем и отправляем сообщение
     const message = teamService.formatThreeTeamsMessage(balance, {
       teamA: '🔴 Красная',
-      teamB: '🔵 Синяя', 
+      teamB: '🔵 Синяя',
       teamC: '🟢 Зелёная'
     });
 
@@ -178,10 +178,10 @@ export const triConfirmCommand = async (ctx: BotContext): Promise<void> => {
     // Пересчитываем рейтинги
     teamBalance.teamA.totalRating = composition.teamA.reduce((sum, p) => sum + teamService.getPlayerWeight(p), 0);
     teamBalance.teamA.averageRating = teamBalance.teamA.totalRating / composition.teamA.length;
-    
+
     teamBalance.teamB.totalRating = composition.teamB.reduce((sum, p) => sum + teamService.getPlayerWeight(p), 0);
     teamBalance.teamB.averageRating = teamBalance.teamB.totalRating / composition.teamB.length;
-    
+
     teamBalance.teamC.totalRating = composition.teamC.reduce((sum, p) => sum + teamService.getPlayerWeight(p), 0);
     teamBalance.teamC.averageRating = teamBalance.teamC.totalRating / composition.teamC.length;
 
@@ -232,7 +232,7 @@ export const triCancelCommand = async (ctx: BotContext): Promise<void> => {
     // Сбрасываем в черновик
     await prisma.gameSession.update({
       where: { id: gameSession.id },
-      data: { 
+      data: {
         isConfirmed: false,
         isInitialized: false
       }
@@ -355,7 +355,7 @@ export const triBulkAddCommand = async (ctx: BotContext): Promise<void> => {
     }
 
     const lines = playersText.trim().split('\n').filter(line => line.trim());
-    
+
     if (lines.length === 0) {
       await ctx.reply('❌ Список игроков пуст.');
       return;
@@ -503,7 +503,7 @@ export const triBulkAddCommand = async (ctx: BotContext): Promise<void> => {
 
     // Формируем отчет
     let reportMessage = `✅ <b>Пакетное добавление завершено!</b>\n\n`;
-    
+
     if (addedPlayers.length > 0) {
       reportMessage += `➕ <b>Добавлено игроков (${addedPlayers.length}):</b>\n`;
       addedPlayers.forEach((player, i) => {
@@ -583,7 +583,7 @@ export const refreshTriEditInterface = async (ctx: BotContext, addTimestamp: boo
 
     // Формируем сообщение с текущими составами
     const teamService = container.resolve(TeamService);
-    
+
     const teamAWeight = composition.teamA.reduce((sum, p) => sum + teamService.getPlayerWeight(p), 0);
     const teamBWeight = composition.teamB.reduce((sum, p) => sum + teamService.getPlayerWeight(p), 0);
     const teamCWeight = composition.teamC.reduce((sum, p) => sum + teamService.getPlayerWeight(p), 0);
@@ -604,26 +604,26 @@ export const refreshTriEditInterface = async (ctx: BotContext, addTimestamp: boo
     message += formatTeam(composition.teamA, '🔴 Красная', teamAWeight) + '\n\n';
     message += formatTeam(composition.teamB, '🔵 Синяя', teamBWeight) + '\n\n';
     message += formatTeam(composition.teamC, '🟢 Зелёная', teamCWeight) + '\n\n';
-    
+
     // Добавляем информацию о балансе и вероятностях
     message += `📊 <b>Баланс команд:</b>\n`;
     message += `• Разница в силе (макс-мин): ${difference.toFixed(2)} μ\n`;
-    
+
     // Рассчитываем примерные вероятности для трех команд
     const totalWeight = teamAWeight + teamBWeight + teamCWeight;
     const probA = (teamAWeight / totalWeight * 100);
     const probB = (teamBWeight / totalWeight * 100);
     const probC = (teamCWeight / totalWeight * 100);
-    
+
     message += `• Примерное распределение силы:\n`;
     message += `  🔴 ${probA.toFixed(1)}% | 🔵 ${probB.toFixed(1)}% | 🟢 ${probC.toFixed(1)}%\n\n`;
-    
+
     // Добавляем временную метку если запрошено (для кнопки "Пересчитать")
     if (addTimestamp) {
       const now = new Date();
       message += `🔄 <i>Обновлено: ${now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</i>\n\n`;
     }
-    
+
     message += `💡 Выберите действие:`;
 
     const keyboard = [
@@ -656,13 +656,13 @@ export const refreshTriEditInterface = async (ctx: BotContext, addTimestamp: boo
 
   } catch (error: any) {
     // Если сообщение не изменилось, пробрасываем ошибку дальше для обработки
-    if (error?.response?.error_code === 400 && 
+    if (error?.response?.error_code === 400 &&
         error?.response?.description?.includes('message is not modified')) {
       throw error;
     }
-    
+
     logger.error('Error in refreshTriEditInterface:', error);
-    
+
     // Пытаемся отредактировать сообщение с ошибкой
     try {
       await ctx.editMessageText('❌ Ошибка при обновлении интерфейса редактирования.');
@@ -716,7 +716,7 @@ export const triEditCommand = async (ctx: BotContext): Promise<void> => {
 
     // Формируем сообщение с текущими составами
     const teamService = container.resolve(TeamService);
-    
+
     const teamAWeight = composition.teamA.reduce((sum, p) => sum + teamService.getPlayerWeight(p), 0);
     const teamBWeight = composition.teamB.reduce((sum, p) => sum + teamService.getPlayerWeight(p), 0);
     const teamCWeight = composition.teamC.reduce((sum, p) => sum + teamService.getPlayerWeight(p), 0);
@@ -811,9 +811,9 @@ export const handleTriMove = async (ctx: BotContext, fromTeam: string, toTeam: s
 
     // Создаем клавиатуру со списком игроков для перемещения
     const keyboard = sourceTeam.map((player, index) => [
-      { 
-        text: `${index + 1}. ${player.firstName}`, 
-        callback_data: `tri_move_player_${fromTeam}_${toTeam}_${player.id}` 
+      {
+        text: `${index + 1}. ${player.firstName}`,
+        callback_data: `tri_move_player_${fromTeam}_${toTeam}_${player.id}`
       }
     ]);
     keyboard.push([{ text: '← Назад', callback_data: 'tri_edit_back' }]);
@@ -889,7 +889,7 @@ export const executeTriPlayerMove = async (ctx: BotContext, fromTeam: string, to
 export const handleTriRecalculate = async (ctx: BotContext): Promise<void> => {
   try {
     await ctx.answerCbQuery('🔄 Пересчитываю составы...');
-    
+
     // Обновляем интерфейс с актуальными данными (с временной меткой)
     await refreshTriEditInterface(ctx, true);
     logger.info(`TRI teams recalculated (display refreshed with timestamp)`);
@@ -968,7 +968,7 @@ export const triMvpCommand = async (ctx: BotContext): Promise<void> => {
 
     const text = ('text' in ctx.message! && ctx.message.text) ? ctx.message.text.replace('/tri_mvp', '').trim() : '';
     const args = text.split(' ').filter(Boolean);
-    
+
     if (args.length === 0 || args.length > 3) {
       await ctx.reply(
         '🏆 <b>Назначение MVP для TRI режима</b>\n\n' +
@@ -1008,18 +1008,18 @@ export const triMvpCommand = async (ctx: BotContext): Promise<void> => {
 
     // Находим игроков по username и определяем их команды
     const mvpPlayers: { id: number; firstName: string; username: string; team: string }[] = [];
-    
+
     for (const usernameArg of args) {
       const username = usernameArg.replace('@', '');
       let found = false;
-      
+
       // Ищем в команде A (красная)
       const playerA = composition.teamA.find(p => p.username === username);
       if (playerA) {
         mvpPlayers.push({ id: playerA.id, firstName: playerA.firstName, username, team: 'A' });
         found = true;
       }
-      
+
       // Ищем в команде B (синяя)
       if (!found) {
         const playerB = composition.teamB.find(p => p.username === username);
@@ -1028,7 +1028,7 @@ export const triMvpCommand = async (ctx: BotContext): Promise<void> => {
           found = true;
         }
       }
-      
+
       // Ищем в команде C (зелёная)
       if (!found) {
         const playerC = composition.teamC.find(p => p.username === username);
@@ -1047,7 +1047,7 @@ export const triMvpCommand = async (ctx: BotContext): Promise<void> => {
     // Проверяем, что не более одного MVP на команду
     const teamCounts = { A: 0, B: 0, C: 0 };
     mvpPlayers.forEach(p => teamCounts[p.team as keyof typeof teamCounts]++);
-    
+
     if (teamCounts.A > 1 || teamCounts.B > 1 || teamCounts.C > 1) {
       await ctx.reply('❌ Максимум один MVP на команду');
       return;
@@ -1077,7 +1077,7 @@ export const triMvpCommand = async (ctx: BotContext): Promise<void> => {
 
     // Применяем MVP бонусы
     const mvpIds = mvpPlayers.map(p => p.id);
-    
+
     await prisma.$transaction([
       // Обновляем μ рейтинг MVP игроков
       ...mvpIds.map(id =>
@@ -1114,10 +1114,10 @@ export const triMvpCommand = async (ctx: BotContext): Promise<void> => {
 
     // Формируем ответ
     const teamNames = { A: '🔴 Красная', B: '🔵 Синяя', C: '🟢 Зелёная' };
-    const mvpList = mvpPlayers.map(p => 
+    const mvpList = mvpPlayers.map(p =>
       `${p.firstName} (@${p.username}) - ${teamNames[p.team as keyof typeof teamNames]}`
     ).join('\n');
-    
+
     await ctx.reply(
       `🏆 <b>MVP назначены для TRI игры:</b>\n\n${mvpList}\n\n` +
       `💫 Бонус: +${CONFIG.RATING_MVP_MU_BONUS} к рейтингу каждому`,
@@ -1220,7 +1220,7 @@ export const triResultsCommand = async (ctx: BotContext): Promise<void> => {
 
     for (let i = 0; i < results.length; i++) {
       const result = results[i];
-      
+
       try {
         // Создаем запись мини-матча
         await prisma.triMiniMatch.create({
@@ -1241,7 +1241,12 @@ export const triResultsCommand = async (ctx: BotContext): Promise<void> => {
         // Обновляем рейтинги только если есть победитель
         if (result.winner) {
           const winnerIds = teamIds[result.winner as 'A' | 'B' | 'C'];
-          const loserIds = teamIds[(result.winner === result.t1 ? result.t2 : result.t1) as 'A' | 'B' | 'C'];
+
+          // Правильно определяем проигравшую команду
+          const loserTeam = result.winner === result.t1 ? result.t2 : result.t1;
+          const loserIds = teamIds[loserTeam as 'A' | 'B' | 'C'];
+
+          logger.info(`TRI match: ${result.t1} ${result.s1}-${result.s2} ${result.t2}, winner: ${result.winner}, loser: ${loserTeam}`);
 
           await ratingService.updateTrueSkill(winnerIds, loserIds, {
             matchPlayedAt: gameSession.createdAt,
