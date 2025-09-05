@@ -13,6 +13,14 @@ interface UpdateTrueSkillOptions {
   weight?: number;
 }
 
+interface UpdateTrueSkillDrawOptions {
+  matchPlayedAt?: Date;
+  applyIdleInflation?: boolean;
+  weight?: number;
+  team1Adjustment?: number;
+  team2Adjustment?: number;
+}
+
 @injectable()
 export class RatingService {
   /**
@@ -332,5 +340,193 @@ export class RatingService {
       logger.error('Error getting player stats:', error);
       throw error;
     }
+  }
+
+  /**
+   * Обновление рейтингов для ничьих с учетом силы команд
+   * Слабые команды получают бонус за ничью против сильных
+   * Сильные команды теряют рейтинг за ничью против слабых
+   */
+  async updateTrueSkillDraw(
+    team1Ids: number[],
+    team2Ids: number[],
+    options: UpdateTrueSkillDrawOptions = {}
+  ): Promise<void> {
+    const {
+      matchPlayedAt = new Date(),
+      applyIdleInflation = true,
+      weight = 1.0,
+      team1Adjustment,
+      team2Adjustment
+    } = options;
+
+    // Базовая валидация
+    if (!team1Ids?.length || !team2Ids?.length) {
+      throw new Error('updateTrueSkillDraw: teams must be non-empty');
+    }
+
+    const t1Set = new Set(team1Ids);
+    const t2Set = new Set(team2Ids);
+    for (const id of t1Set) {
+      if (t2Set.has(id)) throw new Error('updateTrueSkillDraw: teams overlap');
+    }
+
+    const allIds = [...team1Ids, ...team2Ids];
+    const players = await prisma.player.findMany({
+      where: { id: { in: allIds } }
+    });
+
+    if (players.length !== allIds.length) {
+      const found = new Set(players.map(p => p.id));
+      const missing = allIds.filter(id => !found.has(id));
+      throw new Error(`updateTrueSkillDraw: missing player ids: ${missing.join(', ')}`);
+    }
+
+    // Применяем idle inflation если нужно
+    let inflatedCount = 0;
+    if (applyIdleInflation && CONFIG.RATING_IDLE_ENABLED) {
+      const inactivityService = container.resolve(InactivityService);
+      
+      for (const player of players) {
+        const { tsSigma, weeksInactive } = inactivityService.calculateInflation(player, matchPlayedAt);
+        if (Math.abs(tsSigma - player.tsSigma) > 0.001) {
+          player.tsSigma = tsSigma;
+          inflatedCount++;
+
+          await prisma.ratingEvent.create({
+            data: {
+              playerId: player.id,
+              muBefore: player.tsMu,
+              muAfter: player.tsMu,
+              sigmaBefore: tsSigma, // Исходное значение до инфляции
+              sigmaAfter: tsSigma,
+              reason: 'idle',
+              meta: {
+                weeksInactive,
+                lambda: CONFIG.RATING_IDLE_LAMBDA
+              }
+            }
+          });
+        }
+      }
+    }
+
+    // Рассчитываем средние силы команд
+    const team1Players = players.filter(p => t1Set.has(p.id));
+    const team2Players = players.filter(p => t2Set.has(p.id));
+    
+    const team1Strength = team1Players.reduce((sum, p) => sum + p.tsMu, 0) / team1Players.length;
+    const team2Strength = team2Players.reduce((sum, p) => sum + p.tsMu, 0) / team2Players.length;
+
+    // Рассчитываем adjustment на основе ожидаемого результата
+    let finalTeam1Adjustment = team1Adjustment;
+    let finalTeam2Adjustment = team2Adjustment;
+
+    if (finalTeam1Adjustment === undefined || finalTeam2Adjustment === undefined) {
+      const { team1Adj, team2Adj } = this.calculateDrawAdjustments(team1Strength, team2Strength);
+      finalTeam1Adjustment = team1Adj;
+      finalTeam2Adjustment = team2Adj;
+    }
+
+    // Применяем adjustments с учетом веса
+    const team1Delta = finalTeam1Adjustment * weight;
+    const team2Delta = finalTeam2Adjustment * weight;
+
+    // Обновляем рейтинги игроков
+    const updates = [];
+    
+    for (const player of team1Players) {
+      updates.push({
+        id: player.id,
+        tsMu: player.tsMu + team1Delta,
+        tsSigma: Math.max(CONFIG.RATING_SIGMA_FLOOR, player.tsSigma)
+      });
+    }
+
+    for (const player of team2Players) {
+      updates.push({
+        id: player.id,
+        tsMu: player.tsMu + team2Delta,
+        tsSigma: Math.max(CONFIG.RATING_SIGMA_FLOOR, player.tsSigma)
+      });
+    }
+
+    // Выполняем обновления в транзакции
+    await prisma.$transaction([
+      // Обновляем рейтинги игроков
+      ...updates.map(u =>
+        prisma.player.update({
+          where: { id: u.id },
+          data: {
+            tsMu: u.tsMu,
+            tsSigma: u.tsSigma,
+            lastPlayedAt: matchPlayedAt,
+            gamesPlayed: { increment: 1 }
+          }
+        })
+      ),
+      // Создаем события рейтинга
+      ...updates.map(u => {
+        const originalPlayer = players.find(p => p.id === u.id)!;
+        return prisma.ratingEvent.create({
+          data: {
+            playerId: u.id,
+            muBefore: originalPlayer.tsMu,
+            muAfter: u.tsMu,
+            sigmaBefore: originalPlayer.tsSigma,
+            sigmaAfter: u.tsSigma,
+            reason: 'match',
+            meta: {
+              isDraw: true,
+              team: t1Set.has(u.id) ? 1 : 2,
+              adjustment: t1Set.has(u.id) ? team1Delta : team2Delta
+            }
+          }
+        });
+      })
+    ]);
+
+    // Обновляем pair statistics для ничьей
+    try {
+      // В случае ничьи не обновляем win/loss, но обновляем together stats
+      const pairService = container.resolve(PairService);
+      
+      // Обновляем together stats для команд как если бы они "проиграли" друг другу (равный исход)
+      // Это немного хакерский способ, но позволяет использовать существующий метод
+      await pairService.updateAfterMatch([], [...team1Ids, ...team2Ids], matchPlayedAt);
+    } catch (error) {
+      logger.error('Failed to update pair statistics for draw:', error);
+    }
+
+    logger.info(
+      `TrueSkill draw updated: team1=${team1Ids.length} (adj=${team1Delta.toFixed(3)}), team2=${team2Ids.length} (adj=${team2Delta.toFixed(3)}), weight=${weight}, inflated=${inflatedCount}`
+    );
+  }
+
+  /**
+   * Рассчитывает adjustments рейтинга для ничьей на основе силы команд
+   */
+  private calculateDrawAdjustments(team1Strength: number, team2Strength: number): { team1Adj: number; team2Adj: number } {
+    // Рассчитываем вероятность победы первой команды
+    const sigma = 8.333;
+    const diff = team2Strength - team1Strength;
+    const team1WinProb = 1 / (1 + Math.pow(10, diff / (Math.sqrt(2) * sigma))) * 100;
+
+    let team1Adj = CONFIG.DRAW_BASE_BONUS;
+    let team2Adj = CONFIG.DRAW_BASE_BONUS;
+
+    // Применяем adjustments на основе ожиданий
+    if (team1WinProb > CONFIG.DRAW_SIGNIFICANT_DIFF_THRESHOLD) {
+      // Команда 1 значительно сильнее - разочаровывающий результат
+      team1Adj = CONFIG.DRAW_BASE_BONUS - CONFIG.DRAW_UPSET_PENALTY;
+      team2Adj = CONFIG.DRAW_BASE_BONUS + CONFIG.DRAW_UPSET_BONUS;
+    } else if (team1WinProb < (100 - CONFIG.DRAW_SIGNIFICANT_DIFF_THRESHOLD)) {
+      // Команда 2 значительно сильнее
+      team1Adj = CONFIG.DRAW_BASE_BONUS + CONFIG.DRAW_UPSET_BONUS;
+      team2Adj = CONFIG.DRAW_BASE_BONUS - CONFIG.DRAW_UPSET_PENALTY;
+    }
+    // Если команды примерно равны - остаются базовые бонусы
+
+    return { team1Adj: team1Adj, team2Adj: team2Adj };
   }
 }

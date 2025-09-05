@@ -1238,7 +1238,7 @@ export const triResultsCommand = async (ctx: BotContext): Promise<void> => {
 
         processedCount++;
 
-        // Обновляем рейтинги только если есть победитель
+        // Обновляем рейтинги для всех матчей (победы и ничьи)
         if (result.winner) {
           const winnerIds = teamIds[result.winner as 'A' | 'B' | 'C'];
 
@@ -1256,6 +1256,21 @@ export const triResultsCommand = async (ctx: BotContext): Promise<void> => {
 
           ratingUpdatesCount++;
           firstMatchForInflation = false; // Отключаем для последующих матчей
+        } else {
+          // Обрабатываем ничью с новой системой рейтинга
+          const team1Ids = teamIds[result.t1 as 'A' | 'B' | 'C'];
+          const team2Ids = teamIds[result.t2 as 'A' | 'B' | 'C'];
+
+          logger.info(`TRI draw: ${result.t1} ${result.s1}-${result.s2} ${result.t2}`);
+
+          await ratingService.updateTrueSkillDraw(team1Ids, team2Ids, {
+            matchPlayedAt: gameSession.createdAt,
+            applyIdleInflation: firstMatchForInflation,
+            weight: CONFIG.TRI_MINI_MATCH_WEIGHT
+          });
+
+          ratingUpdatesCount++;
+          firstMatchForInflation = false;
         }
 
       } catch (error) {
@@ -1272,7 +1287,7 @@ export const triResultsCommand = async (ctx: BotContext): Promise<void> => {
     reportMessage += `📊 <b>Статистика:</b>\n`;
     reportMessage += `• Обработано строк: ${processedCount}/${results.length}\n`;
     reportMessage += `• Обновлений рейтинга: ${ratingUpdatesCount}\n`;
-    reportMessage += `• Ничьих (без обновления): ${processedCount - ratingUpdatesCount}\n\n`;
+    reportMessage += `• Ничьих (с обновлением): ${results.filter(r => r.winner === null).length}\n\n`;
 
     if (results.length > 0) {
       reportMessage += `🎯 <b>Первые результаты:</b>\n`;

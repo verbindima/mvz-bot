@@ -37,6 +37,11 @@ interface Config {
   TRI_MODE_ENABLED: boolean;
   TRI_MINI_MATCH_WEIGHT: number;
   TRI_BULK_PARSE_MAX_LINES: number;
+  // Draw rating system
+  DRAW_BASE_BONUS: number;
+  DRAW_UPSET_BONUS: number;
+  DRAW_UPSET_PENALTY: number;
+  DRAW_SIGNIFICANT_DIFF_THRESHOLD: number;
 }
 
 class ConfigManager {
@@ -78,6 +83,11 @@ class ConfigManager {
       TRI_MODE_ENABLED: process.env.TRI_MODE_ENABLED !== 'false',
       TRI_MINI_MATCH_WEIGHT: parseFloat(process.env.TRI_MINI_MATCH_WEIGHT || '0.5'),
       TRI_BULK_PARSE_MAX_LINES: parseInt(process.env.TRI_BULK_PARSE_MAX_LINES || '100'),
+      // Draw rating system
+      DRAW_BASE_BONUS: parseFloat(process.env.DRAW_BASE_BONUS || '0.1'),
+      DRAW_UPSET_BONUS: parseFloat(process.env.DRAW_UPSET_BONUS || '0.2'),
+      DRAW_UPSET_PENALTY: parseFloat(process.env.DRAW_UPSET_PENALTY || '0.3'),
+      DRAW_SIGNIFICANT_DIFF_THRESHOLD: parseFloat(process.env.DRAW_SIGNIFICANT_DIFF_THRESHOLD || '65.0'),
     };
   }
 
