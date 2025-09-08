@@ -1280,7 +1280,7 @@ export const triResultsCommand = async (ctx: BotContext): Promise<void> => {
 
     // Создаем основную запись матча для истории
     const statisticsService = container.resolve(StatisticsService);
-    await statisticsService.saveMatchResult(gameSession.id, 0, 0); // TRI формат - без счета основного матча
+    await statisticsService.saveMatchResult(gameSession.id, -1, -1); // TRI формат - специальные значения
 
     // Формируем отчет
     let reportMessage = `✅ <b>Обработка завершена!</b>\n\n`;

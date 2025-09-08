@@ -357,7 +357,10 @@ export class StatisticsService {
     teamBScore: number
   ): Promise<void> {
     try {
-      const winnerTeam = teamAScore > teamBScore ? 'A' : teamBScore > teamAScore ? 'B' : 'DRAW';
+      // Специальная логика для TRI матчей (счет -1:-1)
+      const winnerTeam = teamAScore === -1 && teamBScore === -1 ? 'TRI' : 
+                        teamAScore > teamBScore ? 'A' : 
+                        teamBScore > teamAScore ? 'B' : 'DRAW';
 
       await prisma.matchResult.create({
         data: {
