@@ -32,13 +32,17 @@ export const triInitCommand = async (ctx: BotContext): Promise<void> => {
 
     const { week, year } = getCurrentWeek();
 
-    // Проверяем, есть ли уже активная DUO игра
-    const existingSession = await prisma.gameSession.findUnique({
-      where: { week_year: { week, year } }
+    // Проверяем, есть ли уже открытая сессия (любого формата)
+    const existingOpenSession = await prisma.gameSession.findFirst({
+      where: {
+        isClosed: false,
+        isConfirmed: true
+      }
     });
 
-    if (existingSession && existingSession.format === 'DUO' && existingSession.isConfirmed) {
-      await ctx.reply('❌ На этой неделе уже активна обычная игра 2×8. Завершите её перед запуском TRI режима.');
+    if (existingOpenSession) {
+      const formatName = existingOpenSession.format === 'DUO' ? '2×8' : '3×8';
+      await ctx.reply(`❌ Уже есть открытая игра в формате ${formatName}. Завершите её перед созданием новой TRI сессии.`);
       return;
     }
 
@@ -106,7 +110,7 @@ export const triInitCommand = async (ctx: BotContext): Promise<void> => {
       { parse_mode: 'HTML' }
     );
 
-    logger.info(`TRI teams generated for week ${year}-${week} by admin ${ctx.from?.id}`);
+    logger.info(`TRI teams generated for session ${gameSession.id} by admin ${ctx.from?.id}`);
 
   } catch (error) {
     logger.error('Error in tri_init command:', error);
@@ -125,19 +129,18 @@ export const triConfirmCommand = async (ctx: BotContext): Promise<void> => {
       return;
     }
 
-    const { week, year } = getCurrentWeek();
-
-    const gameSession = await prisma.gameSession.findUnique({
-      where: { week_year: { week, year } }
+    // Ищем открытую TRI сессию
+    const gameSession = await prisma.gameSession.findFirst({
+      where: {
+        format: 'TRI',
+        isInitialized: true,
+        isClosed: false
+      },
+      orderBy: { createdAt: 'desc' }
     });
 
     if (!gameSession) {
-      await ctx.reply('❌ Нет активной TRI сессии. Используйте /tri_init для создания.');
-      return;
-    }
-
-    if (gameSession.format !== 'TRI') {
-      await ctx.reply('❌ Текущая сессия не является TRI форматом.');
+      await ctx.reply('❌ Нет активной открытой TRI сессии. Используйте /tri_init для создания.');
       return;
     }
 
@@ -204,7 +207,7 @@ export const triConfirmCommand = async (ctx: BotContext): Promise<void> => {
       { parse_mode: 'HTML' }
     );
 
-    logger.info(`TRI teams confirmed for week ${year}-${week} by admin ${ctx.from?.id}`);
+    logger.info(`TRI teams confirmed for session ${gameSession.id} by admin ${ctx.from?.id}`);
 
   } catch (error) {
     logger.error('Error in tri_confirm command:', error);
@@ -218,13 +221,16 @@ export const triCancelCommand = async (ctx: BotContext): Promise<void> => {
       return;
     }
 
-    const { week, year } = getCurrentWeek();
-
-    const gameSession = await prisma.gameSession.findUnique({
-      where: { week_year: { week, year } }
+    // Ищем открытую TRI сессию
+    const gameSession = await prisma.gameSession.findFirst({
+      where: {
+        format: 'TRI',
+        isClosed: false
+      },
+      orderBy: { createdAt: 'desc' }
     });
 
-    if (!gameSession || gameSession.format !== 'TRI') {
+    if (!gameSession) {
       await ctx.reply('❌ Нет активной TRI сессии для отмены.');
       return;
     }
@@ -243,7 +249,7 @@ export const triCancelCommand = async (ctx: BotContext): Promise<void> => {
       '💡 Составы команд сохранены. Используйте /tri_init для повторной генерации или /tri_confirm для подтверждения текущих составов.'
     );
 
-    logger.info(`TRI session cancelled for week ${year}-${week} by admin ${ctx.from?.id}`);
+    logger.info(`TRI session ${gameSession.id} cancelled by admin ${ctx.from?.id}`);
 
   } catch (error) {
     logger.error('Error in tri_cancel command:', error);
@@ -550,7 +556,7 @@ export const triBulkAddCommand = async (ctx: BotContext): Promise<void> => {
 
     await ctx.reply(reportMessage, { parse_mode: 'HTML' });
 
-    logger.info(`Bulk add completed: ${addedPlayers.length} added, ${autoRegistered.length} auto-registered, ${alreadyJoined.length} already joined, ${notFoundPlayers.length} not found for week ${year}-${week} by admin ${ctx.from?.id}`);
+    logger.info(`Bulk add completed: ${addedPlayers.length} added, ${autoRegistered.length} auto-registered, ${alreadyJoined.length} already joined, ${notFoundPlayers.length} not found by admin ${ctx.from?.id}`);
 
   } catch (error) {
     logger.error('Error in tri_bulk_add command:', error);
@@ -561,13 +567,17 @@ export const triBulkAddCommand = async (ctx: BotContext): Promise<void> => {
 // Функция для обновления интерфейса редактирования (редактирует существующее сообщение)
 export const refreshTriEditInterface = async (ctx: BotContext, addTimestamp: boolean = false): Promise<void> => {
   try {
-    const { week, year } = getCurrentWeek();
-
-    const gameSession = await prisma.gameSession.findUnique({
-      where: { week_year: { week, year } }
+    // Ищем открытую TRI сессию
+    const gameSession = await prisma.gameSession.findFirst({
+      where: {
+        format: 'TRI',
+        isInitialized: true,
+        isClosed: false
+      },
+      orderBy: { createdAt: 'desc' }
     });
 
-    if (!gameSession || gameSession.format !== 'TRI' || !gameSession.isInitialized) {
+    if (!gameSession) {
       await ctx.editMessageText('❌ TRI сессия недоступна для редактирования.');
       return;
     }
@@ -684,24 +694,18 @@ export const triEditCommand = async (ctx: BotContext): Promise<void> => {
       return;
     }
 
-    const { week, year } = getCurrentWeek();
-
-    const gameSession = await prisma.gameSession.findUnique({
-      where: { week_year: { week, year } }
+    // Ищем открытую TRI сессию
+    const gameSession = await prisma.gameSession.findFirst({
+      where: {
+        format: 'TRI',
+        isInitialized: true,
+        isClosed: false
+      },
+      orderBy: { createdAt: 'desc' }
     });
 
     if (!gameSession) {
-      await ctx.reply('❌ Нет активной TRI сессии. Используйте /tri_init для создания.');
-      return;
-    }
-
-    if (gameSession.format !== 'TRI') {
-      await ctx.reply('❌ Текущая сессия не является TRI форматом.');
-      return;
-    }
-
-    if (!gameSession.isInitialized) {
-      await ctx.reply('❌ TRI сессия не инициализирована. Используйте /tri_init.');
+      await ctx.reply('❌ Нет активной открытой TRI сессии. Используйте /tri_init для создания.');
       return;
     }
 
@@ -768,7 +772,7 @@ export const triEditCommand = async (ctx: BotContext): Promise<void> => {
       reply_markup: { inline_keyboard: keyboard }
     });
 
-    logger.info(`TRI edit interface opened for week ${year}-${week} by admin ${ctx.from?.id}`);
+    logger.info(`TRI edit interface opened for session ${gameSession.id} by admin ${ctx.from?.id}`);
 
   } catch (error) {
     logger.error('Error in tri_edit command:', error);
@@ -779,13 +783,17 @@ export const triEditCommand = async (ctx: BotContext): Promise<void> => {
 // Функция для обработки перемещения игроков между командами
 export const handleTriMove = async (ctx: BotContext, fromTeam: string, toTeam: string): Promise<void> => {
   try {
-    const { week, year } = getCurrentWeek();
-
-    const gameSession = await prisma.gameSession.findUnique({
-      where: { week_year: { week, year } }
+    // Ищем открытую TRI сессию
+    const gameSession = await prisma.gameSession.findFirst({
+      where: {
+        format: 'TRI',
+        isInitialized: true,
+        isClosed: false
+      },
+      orderBy: { createdAt: 'desc' }
     });
 
-    if (!gameSession || gameSession.format !== 'TRI') {
+    if (!gameSession) {
       await ctx.answerCbQuery('❌ Нет активной TRI сессии');
       return;
     }
@@ -839,13 +847,17 @@ export const handleTriMove = async (ctx: BotContext, fromTeam: string, toTeam: s
 // Функция для выполнения перемещения конкретного игрока
 export const executeTriPlayerMove = async (ctx: BotContext, fromTeam: string, toTeam: string, playerId: number): Promise<void> => {
   try {
-    const { week, year } = getCurrentWeek();
-
-    const gameSession = await prisma.gameSession.findUnique({
-      where: { week_year: { week, year } }
+    // Ищем открытую TRI сессию
+    const gameSession = await prisma.gameSession.findFirst({
+      where: {
+        format: 'TRI',
+        isInitialized: true,
+        isClosed: false
+      },
+      orderBy: { createdAt: 'desc' }
     });
 
-    if (!gameSession || gameSession.format !== 'TRI') {
+    if (!gameSession) {
       await ctx.answerCbQuery('❌ Нет активной TRI сессии');
       return;
     }
@@ -903,13 +915,17 @@ export const handleTriRecalculate = async (ctx: BotContext): Promise<void> => {
 // Функция для автоматической балансировки команд
 export const handleTriAutoBalance = async (ctx: BotContext): Promise<void> => {
   try {
-    const { week, year } = getCurrentWeek();
-
-    const gameSession = await prisma.gameSession.findUnique({
-      where: { week_year: { week, year } }
+    // Ищем открытую TRI сессию
+    const gameSession = await prisma.gameSession.findFirst({
+      where: {
+        format: 'TRI',
+        isInitialized: true,
+        isClosed: false
+      },
+      orderBy: { createdAt: 'desc' }
     });
 
-    if (!gameSession || gameSession.format !== 'TRI') {
+    if (!gameSession) {
       await ctx.answerCbQuery('❌ Нет активной TRI сессии');
       return;
     }
@@ -947,7 +963,7 @@ export const handleTriAutoBalance = async (ctx: BotContext): Promise<void> => {
     // Обновляем интерфейс (редактируем сообщение)
     await refreshTriEditInterface(ctx);
 
-    logger.info(`TRI teams auto-balanced for week ${year}-${week} by admin ${ctx.from?.id}`);
+    logger.info(`TRI teams auto-balanced for session ${gameSession.id} by admin ${ctx.from?.id}`);
 
   } catch (error) {
     logger.error('Error in handleTriAutoBalance:', error);
@@ -981,14 +997,17 @@ export const triMvpCommand = async (ctx: BotContext): Promise<void> => {
       return;
     }
 
-    // Получаем текущую TRI сессию
-    const { week, year } = getCurrentWeek();
-    const gameSession = await prisma.gameSession.findUnique({
-      where: { week_year: { week, year } }
+    // Ищем подтвержденную (возможно закрытую) TRI сессию
+    const gameSession = await prisma.gameSession.findFirst({
+      where: {
+        format: 'TRI',
+        isConfirmed: true
+      },
+      orderBy: { createdAt: 'desc' }
     });
 
-    if (!gameSession || gameSession.format !== 'TRI') {
-      await ctx.reply('❌ Нет активной TRI сессии.');
+    if (!gameSession) {
+      await ctx.reply('❌ Нет подтвержденной TRI сессии.');
       return;
     }
 
@@ -1124,7 +1143,7 @@ export const triMvpCommand = async (ctx: BotContext): Promise<void> => {
       { parse_mode: 'HTML' }
     );
 
-    logger.info(`TRI MVP assigned for week ${year}-${week}: ${mvpPlayers.map(p => `${p.firstName} (${p.team})`).join(', ')} by admin ${ctx.from?.id}`);
+    logger.info(`TRI MVP assigned for session ${gameSession.id}: ${mvpPlayers.map(p => `${p.firstName} (${p.team})`).join(', ')} by admin ${ctx.from?.id}`);
 
   } catch (error) {
     logger.error('Error in tri_mvp command:', error);
@@ -1166,19 +1185,18 @@ export const triResultsCommand = async (ctx: BotContext): Promise<void> => {
       return;
     }
 
-    // Проверяем TRI сессию
-    const { week, year } = getCurrentWeek();
-    const gameSession = await prisma.gameSession.findUnique({
-      where: { week_year: { week, year } }
+    // Ищем открытую TRI сессию (не привязанную к текущей неделе)
+    const gameSession = await prisma.gameSession.findFirst({
+      where: {
+        format: 'TRI',
+        isConfirmed: true,
+        isClosed: false
+      },
+      orderBy: { createdAt: 'desc' }
     });
 
-    if (!gameSession || gameSession.format !== 'TRI') {
-      await ctx.reply('❌ Нет активной TRI сессии. Используйте /tri_init для создания.');
-      return;
-    }
-
-    if (!gameSession.isConfirmed) {
-      await ctx.reply('❌ TRI команды не подтверждены. Используйте /tri_confirm.');
+    if (!gameSession) {
+      await ctx.reply('❌ Нет активной открытой TRI сессии. Используйте /tri_init для создания.');
       return;
     }
 
@@ -1282,6 +1300,12 @@ export const triResultsCommand = async (ctx: BotContext): Promise<void> => {
     const statisticsService = container.resolve(StatisticsService);
     await statisticsService.saveMatchResult(gameSession.id, -1, -1); // TRI формат - специальные значения
 
+    // Закрываем сессию после обработки результатов
+    await prisma.gameSession.update({
+      where: { id: gameSession.id },
+      data: { isClosed: true }
+    });
+
     // Формируем отчет
     let reportMessage = `✅ <b>Обработка завершена!</b>\n\n`;
     reportMessage += `📊 <b>Статистика:</b>\n`;
@@ -1306,10 +1330,67 @@ export const triResultsCommand = async (ctx: BotContext): Promise<void> => {
 
     await ctx.reply(reportMessage, { parse_mode: 'HTML' });
 
-    logger.info(`TRI results processed: ${processedCount} matches, ${ratingUpdatesCount} rating updates for week ${year}-${week} by admin ${ctx.from?.id}`);
+    logger.info(`TRI results processed: ${processedCount} matches, ${ratingUpdatesCount} rating updates for session ${gameSession.id} by admin ${ctx.from?.id}`);
 
   } catch (error) {
     logger.error('Error in tri_results command:', error);
     await ctx.reply('❌ Произошла ошибка при обработке результатов TRI.');
+  }
+};
+
+// Команда для просмотра статуса всех TRI сессий
+export const triStatusCommand = async (ctx: BotContext): Promise<void> => {
+  try {
+    if (!await checkAdminPrivateOnly(ctx)) {
+      return;
+    }
+
+    if (!CONFIG.TRI_MODE_ENABLED) {
+      await ctx.reply('❌ Режим трёх команд отключен в конфигурации.');
+      return;
+    }
+
+    const sessions = await prisma.gameSession.findMany({
+      where: { format: 'TRI' },
+      orderBy: { createdAt: 'desc' },
+      take: 10
+    });
+
+    if (sessions.length === 0) {
+      await ctx.reply('📋 Нет TRI сессий в системе.');
+      return;
+    }
+
+    let message = `📋 <b>Статус TRI сессий (последние 10):</b>\n\n`;
+
+    sessions.forEach((session, index) => {
+      const statusIcon = session.isClosed ? '🔒' : '🔓';
+      const confirmedIcon = session.isConfirmed ? '✅' : '⏳';
+      const initIcon = session.isInitialized ? '🎯' : '📝';
+      
+      const date = session.createdAt.toLocaleDateString('ru-RU');
+      const time = session.createdAt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+      
+      message += `${index + 1}. ${statusIcon} Сессия #${session.id} (${date} ${time})\n`;
+      message += `   ${initIcon} Инициализована: ${session.isInitialized ? 'Да' : 'Нет'}\n`;
+      message += `   ${confirmedIcon} Подтверждена: ${session.isConfirmed ? 'Да' : 'Нет'}\n`;
+      message += `   ${statusIcon} Закрыта: ${session.isClosed ? 'Да' : 'Нет'}\n\n`;
+    });
+
+    // Показываем активную открытую сессию отдельно
+    const openSession = sessions.find(s => !s.isClosed && s.isConfirmed);
+    if (openSession) {
+      message += `🎮 <b>Активная открытая сессия:</b> #${openSession.id}\n`;
+      message += `💡 Эта сессия будет закрыта при вводе результатов через /tri_results`;
+    } else {
+      message += `✨ <b>Нет активных открытых сессий</b>\n`;
+      message += `💡 Создайте новую через /tri_init`;
+    }
+
+    await ctx.reply(message, { parse_mode: 'HTML' });
+
+  } catch (error) {
+    logger.error('Error in tri_status command:', error);
+    await ctx.reply('❌ Произошла ошибка при получении статуса TRI сессий.');
   }
 };

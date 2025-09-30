@@ -65,6 +65,7 @@ model GameSession {
   teamB         String         @default("")
   isConfirmed   Boolean        @default(false)
   isInitialized Boolean        @default(false)
+  isClosed      Boolean        @default(false)
   paymentPhone  String?
   paymentBank   String?
   paymentAmount Float?
