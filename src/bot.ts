@@ -30,6 +30,7 @@ import { confirmPlayerPaymentCommand, paymentStatusCommand } from './commands/ad
 import { editTeamsCommand, movePlayerCommand, recalculateBalanceCommand } from './commands/edit_teams';
 import { migratePairsCommand } from './commands/migrate_pairs';
 import { triInitCommand, triConfirmCommand, triCancelCommand, triResultsCommand, triBulkAddCommand, triEditCommand, triMvpCommand, triStatusCommand, handleTriMove, executeTriPlayerMove, handleTriAutoBalance, handleTriRecalculate, refreshTriEditInterface } from './commands/tri';
+import { reopenLastDuoCommand, executeReopenDuo, handleCancelReopen } from './commands/reopen';
 
 export interface BotContext extends Context {
   playerService: PlayerService;
@@ -86,6 +87,7 @@ bot.command('tri_bulk_add', triBulkAddCommand);
 bot.command('tri_edit', triEditCommand);
 bot.command('tri_mvp', triMvpCommand);
 bot.command('tri_status', triStatusCommand);
+bot.command('reopen_last_duo', reopenLastDuoCommand);
 bot.command('migrate_tri_history', migrateTriHistoryCommand);
 
 
@@ -317,6 +319,24 @@ const main = async () => {
       }
       // Обновляем сообщение вместо создания нового
       await refreshTriEditInterface(ctx);
+    });
+
+    // Обработчики для отката DUO игр
+    bot.action(/^confirm_reopen_(\d+)$/, async (ctx) => {
+      if (!CONFIG.ADMINS.includes(ctx.from.id)) {
+        await ctx.answerCbQuery('❌ Доступ запрещен');
+        return;
+      }
+      const sessionId = parseInt(ctx.match[1]);
+      await executeReopenDuo(ctx, sessionId);
+    });
+
+    bot.action('cancel_reopen', async (ctx) => {
+      if (!CONFIG.ADMINS.includes(ctx.from.id)) {
+        await ctx.answerCbQuery('❌ Доступ запрещен');
+        return;
+      }
+      await handleCancelReopen(ctx);
     });
 
     container.registerInstance('bot', bot);

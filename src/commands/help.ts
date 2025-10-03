@@ -33,6 +33,7 @@ export const helpCommand = async (ctx: BotContext): Promise<void> => {
         message += `/result A 5-3 B - Результат матча\n`;
         message += `/mvp @username1 [@username2] - Назначить MVP (макс 2)\n`;
         message += `/finish_game confirm - Завершить игру и сбросить сессию\n`;
+        message += `/reopen_last_duo - 🔄 Откат последней DUO игры\n`;
         message += `/register username "Имя" - Зарегистрировать игрока\n`;
         message += `/remove_from_game username - Убрать игрока из текущей игры\n`;
         message += `/add username - Добавить одного игрока\n`;
