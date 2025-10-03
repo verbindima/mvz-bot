@@ -94,13 +94,15 @@ export const resultCommand = async (ctx: BotContext): Promise<void> => {
       const winners = team1 === 'A' ? teamAPlayers : teamBPlayers;
       const losers = team1 === 'A' ? teamBPlayers : teamAPlayers;
       await ratingService.updateTrueSkill(winners, losers, {
-        matchPlayedAt: new Date()
+        matchPlayedAt: new Date(),
+        matchId: gameSession.id
       });
     } else if (score2 > score1) {
       const winners = team2 === 'A' ? teamAPlayers : teamBPlayers;
       const losers = team2 === 'A' ? teamBPlayers : teamAPlayers;
       await ratingService.updateTrueSkill(winners, losers, {
-        matchPlayedAt: new Date()
+        matchPlayedAt: new Date(),
+        matchId: gameSession.id
       });
     }
     // При ничьей TrueSkill рейтинги не обновляются

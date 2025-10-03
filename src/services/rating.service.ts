@@ -11,6 +11,7 @@ interface UpdateTrueSkillOptions {
   mvpIds?: number[];
   applyIdleInflation?: boolean;
   weight?: number;
+  matchId?: number;
 }
 
 interface UpdateTrueSkillDrawOptions {
@@ -19,6 +20,7 @@ interface UpdateTrueSkillDrawOptions {
   weight?: number;
   team1Adjustment?: number;
   team2Adjustment?: number;
+  matchId?: number;
 }
 
 @injectable()
@@ -40,7 +42,8 @@ export class RatingService {
       matchPlayedAt = new Date(),
       mvpIds = [],
       applyIdleInflation = true,
-      weight = 1.0
+      weight = 1.0,
+      matchId
     } = options;
     // --- базовая валидация входа ---
     if (!winnerIds?.length || !loserIds?.length) {
@@ -91,6 +94,7 @@ export class RatingService {
       for (const player of players) {
         const { tsSigma, weeksInactive } = inactivityService.calculateInflation(player, matchPlayedAt);
         if (Math.abs(tsSigma - player.tsSigma) > 0.001) {
+          const sigmaBefore = player.tsSigma; // Сохраняем старое значение
           player.tsSigma = tsSigma;
           inflatedCount++;
 
@@ -98,9 +102,10 @@ export class RatingService {
           await prisma.ratingEvent.create({
             data: {
               playerId: player.id,
+              matchId: matchId,
               muBefore: player.tsMu,
               muAfter: player.tsMu,
-              sigmaBefore: tsSigma, // Исходное значение до инфляции
+              sigmaBefore: sigmaBefore, // Исходное значение до инфляции
               sigmaAfter: tsSigma,
               reason: 'idle',
               meta: {
@@ -212,6 +217,7 @@ export class RatingService {
         return prisma.ratingEvent.create({
           data: {
             playerId: u.id,
+            matchId: matchId,
             muBefore: originalPlayer.tsMu,
             muAfter: u.tsMu,
             sigmaBefore: originalPlayer.tsSigma,
@@ -236,6 +242,7 @@ export class RatingService {
           return prisma.ratingEvent.create({
             data: {
               playerId: mvpId,
+              matchId: matchId,
               muBefore: update.tsMu - CONFIG.RATING_MVP_MU_BONUS, // До MVP бонуса
               muAfter: update.tsMu, // После MVP бонуса
               sigmaBefore: originalPlayer.tsSigma,
@@ -357,7 +364,8 @@ export class RatingService {
       applyIdleInflation = true,
       weight = 1.0,
       team1Adjustment,
-      team2Adjustment
+      team2Adjustment,
+      matchId
     } = options;
 
     // Базовая валидация
@@ -390,15 +398,17 @@ export class RatingService {
       for (const player of players) {
         const { tsSigma, weeksInactive } = inactivityService.calculateInflation(player, matchPlayedAt);
         if (Math.abs(tsSigma - player.tsSigma) > 0.001) {
+          const sigmaBefore = player.tsSigma; // Сохраняем старое значение
           player.tsSigma = tsSigma;
           inflatedCount++;
 
           await prisma.ratingEvent.create({
             data: {
               playerId: player.id,
+              matchId: matchId,
               muBefore: player.tsMu,
               muAfter: player.tsMu,
-              sigmaBefore: tsSigma, // Исходное значение до инфляции
+              sigmaBefore: sigmaBefore, // Исходное значение до инфляции
               sigmaAfter: tsSigma,
               reason: 'idle',
               meta: {
@@ -471,6 +481,7 @@ export class RatingService {
         return prisma.ratingEvent.create({
           data: {
             playerId: u.id,
+            matchId: matchId,
             muBefore: originalPlayer.tsMu,
             muAfter: u.tsMu,
             sigmaBefore: originalPlayer.tsSigma,
