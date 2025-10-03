@@ -81,6 +81,12 @@ export const resultCommand = async (ctx: BotContext): Promise<void> => {
     
     await statisticsService.saveMatchResult(gameSession.id, teamAScore, teamBScore);
 
+    // Закрываем сессию после ввода результатов
+    await prisma.gameSession.update({
+      where: { id: gameSession.id },
+      data: { isClosed: true }
+    });
+
     // Обновляем TrueSkill рейтинги
     const ratingService = container.resolve(RatingService);
 

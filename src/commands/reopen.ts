@@ -1,4 +1,3 @@
-import { container } from 'tsyringe';
 import { BotContext } from '../bot';
 import { CONFIG } from '../config';
 import { checkAdminPrivateOnly } from '../utils/chat';
@@ -193,29 +192,25 @@ async function rollbackPlayerPairs(tx: any, playerIds: number[], resultType: 'wi
   // Генерируем все пары игроков в команде
   for (let i = 0; i < playerIds.length; i++) {
     for (let j = i + 1; j < playerIds.length; j++) {
-      const [p1, p2] = [playerIds[i], playerIds[j]].sort((a, b) => a - b);
+      const [pA, pB] = [playerIds[i], playerIds[j]].sort((a, b) => a - b);
       
       const pair = await tx.playerPair.findUnique({
         where: { 
-          player1Id_player2Id: { player1Id: p1, player2Id: p2 }
+          playerAId_playerBId: { playerAId: pA, playerBId: pB }
         }
       });
 
-      if (pair && pair.gamesPlayed > 0) {
-        const newGamesPlayed = pair.gamesPlayed - 1;
-        const newWins = resultType === 'win' ? Math.max(0, pair.wins - 1) : pair.wins;
-        const newLosses = resultType === 'loss' ? Math.max(0, pair.losses - 1) : pair.losses;
-        const newWinRate = newGamesPlayed > 0 ? newWins / newGamesPlayed : 0;
+      if (pair && pair.togetherGames > 0) {
+        const newTogetherGames = pair.togetherGames - 1;
+        const newTogetherWins = resultType === 'win' ? Math.max(0, pair.togetherWins - 1) : pair.togetherWins;
 
         await tx.playerPair.update({
           where: { 
-            player1Id_player2Id: { player1Id: p1, player2Id: p2 }
+            playerAId_playerBId: { playerAId: pA, playerBId: pB }
           },
           data: {
-            gamesPlayed: newGamesPlayed,
-            wins: newWins,
-            losses: newLosses,
-            winRate: newWinRate
+            togetherGames: newTogetherGames,
+            togetherWins: newTogetherWins
           }
         });
       }
